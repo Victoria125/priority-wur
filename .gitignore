@@ -1,0 +1,12 @@
+data/raw/
+data/cache/
+logs/
+*.mzML
+*.mzXML
+*.raw
+*.fasta
+*.fna
+*.gbk
+*.gbff
+__pycache__/
+.venv/

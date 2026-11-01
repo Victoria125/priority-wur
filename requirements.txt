@@ -1,0 +1,5 @@
+# scripts/*.py use the standard library only; these are for priority_data/
+pyteomics>=4.7
+psims>=1.3
+lxml>=5.0
+numpy>=1.26
