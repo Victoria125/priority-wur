@@ -1,0 +1,20 @@
+{
+  "run": "crusemann_salstrep",
+  "dataset": "Salinispora + Streptomyces, Crüsemann et al. 2017",
+  "MassIVE dataset (PoDP)": "MSV000078836",
+  "GNPS task": "9360fa514804487a9d39b7e7d7e6d514",
+  "GNPS workflow": "METABOLOMICS-SNETS",
+  "description": "SalStrep only genome strains-newattributes-3-0.5 mmp4+kate_extractor_rerun",
+  "MassIVE datasets in the GNPS job": "MSV000078839",
+  "fragment tolerance used by GNPS (Da)": "0.5",
+  "min cosine for GNPS edges": "0.5",
+  "min matched peaks for GNPS edges": "4",
+  "spectra read": 124950,
+  "spectra kept": 3685,
+  "spectra in a GNPS family (size >= 2)": 2418,
+  "GNPS families (size >= 2)": 299,
+  "GNPS edges between kept spectra": 4329,
+  "spectra with a GNPS library hit": 86,
+  "library hits with a structure (SMILES)": 58,
+  "clean MGF md5": "ec022e0c31db62424c676006ba9f65c4"
+}

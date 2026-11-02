@@ -1,0 +1,9 @@
+# DreaMS code + model weights (2.6 GB) and its Python 3.11 environment
+.DreaMS/
+.dreams_env/
+# raw GNPS files, extracted again by scripts/prepare_data.py
+runs/*/data/gnps/
+runs/*/data/gnps_job.zip
+# intermediate file DreaMS writes next to the MGF
+runs/*/data/*.hdf5
+.ipynb_checkpoints/

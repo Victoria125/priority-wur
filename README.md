@@ -19,6 +19,7 @@ This is reconnaissance, not a project plan agreed with the PRIORITY team. No dat
 | `scripts/show.py` | Short on-screen tables of the results: `datasets`, `links`, `bigset`, `genomes` |
 | `priority_data/remote.py` | On-demand access to data too large to keep (local copy first, remote otherwise) |
 | `examples/remote_access_demo.py` | Runs every remote-access path against real data |
+| `dreams_molecular_families/` | First experiment after the 19 Oct meeting: pre-trained DreaMS embeddings vs GNPS molecular families and chemical structures, on three PoDP actinobacteria datasets. Own README, notebook and `RESULTS.md` |
 
 ## What is local and what is remote
 
