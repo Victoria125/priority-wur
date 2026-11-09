@@ -46,6 +46,20 @@ Every script takes `--variant protocol` (default) or `--variant all_kept`.
 
 `dreams_molecular_families.ipynb` runs everything and has the explanations, limitations and open questions. **Results:** [`RESULTS.md`](RESULTS.md).
 
+## Training a DreaMS model from scratch (GPU, Google Colab)
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Victoria125/priority-wur/blob/dreams-molecular-families/dreams_molecular_families/colab_train_from_scratch.ipynb)
+
+`colab_train_from_scratch.ipynb` trains a smaller DreaMS model from zero on one Colab GPU (self-supervised, as in the DreaMS paper) and compares it with the published DreaMS on our data.
+
+| Script | What it does |
+|---|---|
+| `scripts/train_from_scratch.py` | DreaMS pre-training with DreaMS's own model and data classes and the settings of `pre_train.sh`, but smaller (`--size tiny/small/published`), on one device, with a time limit, saving every 500 steps and continuing from the last save. It works around a bug in DreaMS commit `dbec3a0`: `to_hot()` asks `to_classes()` for two values, but that return line is commented out, so the published pre-training code stops with "too many values to unpack" |
+| `scripts/embed_ssl.py` | Embeddings of a self-supervised model (precursor token, last layer): the published DreaMS before fine-tuning (`--name dreams_ssl`) or ours (`--ckpt`) |
+| `scripts/compare_models.py` | Experiments A1, B1 and B2 for our model vs the published DreaMS, with 95% intervals | 
+
+Training data: random samples of GeMS from the DreaMS authors (`GeMS_A1_DreaMS_rand500k.hdf5`, 2.2 GB; `rand50k`, 0.2 GB for tests), from Hugging Face `roman-bushuiev/GeMS`. The pipeline was tested on a laptop CPU with a tiny model (training, resuming, embeddings, comparison); the Colab run itself has not been tested yet.
+
 ## Run it
 
 One-time setup, in this folder ([uv](https://docs.astral.sh/uv/) creates the Python 3.11 environments). DreaMS and MS2DeepScore pin different package versions, so each has its own environment:

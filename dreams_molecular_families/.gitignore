@@ -10,3 +10,6 @@ runs/*/data/*.hdf5
 # MS2DeepScore environment and model (416 MB)
 .ms2ds_env/
 .ms2deepscore/
+# GeMS training data and our own trained models (large; kept out of git)
+.gems/
+runs_scratch/
