@@ -25,6 +25,9 @@ Three GNPS molecular networking jobs on actinobacteria that the Paired Omics Dat
 | `scripts/exp_a_families.py` | **Experiment A**: DreaMS neighbours and a DreaMS network vs the GNPS molecular families, with binned cosine, precursor m/z and random baselines | `results/exp_a_*` |
 | `scripts/exp_b_structures.py` | **Experiment B**: DreaMS, modified cosine and binned cosine vs structural similarity (Tanimoto) of library-annotated spectra | `results/exp_b_*` |
 | `scripts/report.py` | All runs side by side | `RESULTS.md` |
+| `scripts/exp_c_federated_adapter.py` | **Experiment C** (first prototype): a small layer on top of the frozen DreaMS embeddings, trained to follow structure (Tanimoto); local vs centralised vs federated (FedAvg), one lab per client | `federated_prototype/` |
+
+**DreaMS domain.** Our cleaning removes the peaks above the precursor before it applies the DreaMS format A rules, so it keeps some spectra that DreaMS's own check would reject (old ion trap data in the Duncan job; every spectrum of the Crüsemann *Streptomyces* job has noise above m/z 1000). `prepare_data.py` marks each spectrum with `in_dreams_domain` (DreaMS's own `DataFormatA().val_spec` on the spectrum as GNPS gives it). Run experiments A, B and C with `--in-domain-only` to use only those spectra; the results go to `runs/<run>/results_in_domain/` and `federated_prototype_in_domain/`, and `RESULTS.md` shows both versions.
 
 `dreams_molecular_families.ipynb` runs everything and has the explanations, limitations and open questions. **Results:** [`RESULTS.md`](RESULTS.md).
 
