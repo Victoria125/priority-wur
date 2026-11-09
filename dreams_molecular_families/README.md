@@ -12,8 +12,8 @@ Six GNPS molecular networking jobs on actinobacteria that the Paired Omics Data 
 
 | Run | Dataset | MassIVE (PoDP) | GNPS fragment tolerance |
 |---|---|---|---|
-| `duncan_salinispora` | *Salinispora*, Duncan et al. 2015 (ion trap) | MSV000079284 | 0.3 Da |
-| `crusemann_salstrep` | *Salinispora* + *Streptomyces*, Crüsemann et al. 2017 | MSV000078836 | 0.5 Da |
+| `duncan_salinispora` | *Salinispora*, Duncan et al. 2015 (ion trap); files read from MSV000079484, the same files as MSV000079284 | MSV000079284 | 0.3 Da |
+| `crusemann_salstrep` | *Salinispora* (MSV000078836, uploaded from the submitter's workspace) + *Streptomyces* (MSV000078839), Crüsemann et al. 2017 | MSV000078836 | 0.5 Da |
 | `crusemann_streptomyces` | *Streptomyces*, Crüsemann et al. 2017 | MSV000078839 | 0.5 Da |
 | `chevrette_insect` | Insect-associated actinobacteria, Chevrette et al. 2019 | MSV000084723 | 0.02 Da |
 | `dorrestein_salbus` | *Streptomyces albus* J1074, Dorrestein lab | MSV000079519 | 0.01 Da |
@@ -26,19 +26,28 @@ Six GNPS molecular networking jobs on actinobacteria that the Paired Omics Data 
 | `protocol` (main) | Only spectra that pass DreaMS's own format A check (`DataFormatA().val_spec`), given to every method exactly as GNPS gives them | `runs/<run>/results/`, `federated_prototype/` |
 | `all_kept` (sensitivity) | Our cleaning: peaks above the precursor are removed first, then the format A rules. This also keeps spectra that DreaMS's own check rejects: old ion trap data in the Duncan job, and noise above m/z 1000 in every spectrum of the Crüsemann *Streptomyces* job (which has no `protocol` spectra) | `runs/<run>/results_all_kept/`, `federated_prototype_all_kept/` |
 
-Every script takes `--variant protocol` (default) or `--variant all_kept`.
+Every script takes `--variant protocol` (default) or `--variant all_kept`. Files about the run itself (`run_info.json`, `input_report.parquet`, `provenance.json`) are in `runs/<run>/`, outside both results folders.
+
+## Checks built into the pipeline
+
+- **Provenance.** `check_provenance.py` reads the input files of each GNPS job (`upload_file_mapping` in params.xml), groups the spectra files by source and checks them against the documented MassIVE datasets (`RUNS[run]["sources"]`), including that the file names exist in those datasets.
+- **Charge.** The charge GNPS gives is kept in the MGF files (no `CHARGE` line when it is unknown) and counted in `run_info.json`. Embeddings are matched to their spectra by a fingerprint of cluster ids, precursors and peaks (`common.spectra_fingerprint`), which the charge line does not change.
+- **Annotations.** `annotations.py`: valid SMILES (largest fragment, neutralised), exact-mass hits only (no analog-search hits), MQScore >= 0.7 and >= 6 shared peaks, InChI consistent with SMILES, [M+H]+ mass consistent with the structure, one spectrum per molecule. Experiments B, C and D and the model comparison use only these compounds.
+- **Equivalent inputs.** All methods get the same 100 most intense peaks that DreaMS's embedding model keeps (`common.top_peaks`).
+- **Automatic checks.** `check_pipeline.py` fails when required data or results are missing; the only allowed absence is a variant that `run_info.json` declares empty.
 
 ## Steps
 
 | Script | What it does | Output |
 |---|---|---|
 | `scripts/reproduce_dreams_tutorial.py` | **Step 0**: checks that our DreaMS installation reproduces the numbers saved in the DreaMS networking tutorial | `reproduction/` |
-| `scripts/prepare_data.py` | Reads the GNPS job, checks that its files agree, writes both input variants | `runs/<run>/data/`, `runs/<run>/results/run_info.json` |
+| `scripts/prepare_data.py` | Reads the GNPS job, checks that its files agree, writes both input variants with the real charges | `runs/<run>/data/`, `runs/<run>/run_info.json`, `runs/<run>/input_report.parquet` |
+| `scripts/check_provenance.py` | Where the spectra of each GNPS job come from, against the documented MassIVE datasets | `runs/<run>/provenance.json`, `provenance/` |
 | `scripts/embed_dreams.py` | One 1024-number DreaMS embedding per spectrum (skipped if already up to date) | `data/dreams_embeddings*.npy` |
 | `scripts/embed_ms2deepscore.py` | The same with pre-trained MS2DeepScore (run with `.ms2ds_env`) | `data/ms2deepscore_embeddings*.npy` |
 | `scripts/exp_a_families.py` | **Experiment A**: neighbours and a DreaMS network vs the GNPS molecular families, against MS2DeepScore, binned cosine, precursor m/z and random; differences with 95% bootstrap intervals (resampling GNPS families) | `results*/exp_a_*` |
-| `scripts/exp_b_structures.py` | **Experiment B**: spectral similarities vs structural similarity (Morgan Tanimoto and MHFP) of library-annotated spectra; differences with 95% intervals (resampling molecules); counts for conclusions only with at least 100 different molecules | `results*/exp_b_*` |
-| `scripts/exp_c_federated_adapter.py` | **Experiment C** (prototype): a linear layer on frozen DreaMS embeddings, trained to follow structure; local, centralised, FedAvg and SplitFedV2-like training, one lab per client; performance gap between labs (Tirana et al., AAAI 2026) | `federated_prototype*/` |
+| `scripts/exp_b_structures.py` | **Experiment B**: spectral similarities vs structural similarity (Morgan Tanimoto and MHFP) of validated, independent compounds; differences with 95% intervals (resampling molecules); counts for conclusions only with at least 100 compounds | `results*/exp_b_*` |
+| `scripts/exp_c_federated_adapter.py` | **Experiment C**: a linear layer on frozen DreaMS embeddings; 5 molecule splits; lab, IID and Dirichlet client partitions; pre-trained, local, centralised, FedAvg, FedProx and SplitFedV2-like, with validation-based selection and paired 95% intervals | `federated_prototype*/` |
 | `scripts/exp_d_lab_shift.py` | **Experiment D**: can a classifier tell two labs apart from the embeddings, on all spectra and on molecules both labs measured | `lab_shift/` |
 | `scripts/linking_feasibility.py` | Which public PoDP datasets could test DreaMS for genome-metabolome linking (genomes, known links, share of spectra DreaMS accepts) | `linking_feasibility/` |
 | `scripts/report.py` | All runs side by side | `RESULTS.md` |
@@ -56,7 +65,7 @@ Every script takes `--variant protocol` (default) or `--variant all_kept`.
 |---|---|
 | `scripts/train_from_scratch.py` | DreaMS pre-training with DreaMS's own model and data classes and the settings of `pre_train.sh`, but smaller (`--size tiny/small/published`), on one device, with a time limit, saving every 500 steps and continuing from the last save. It works around a bug in DreaMS commit `dbec3a0`: `to_hot()` asks `to_classes()` for two values, but that return line is commented out, so the published pre-training code stops with "too many values to unpack" |
 | `scripts/embed_ssl.py` | Embeddings of a self-supervised model (precursor token, last layer): the published DreaMS before fine-tuning (`--name dreams_ssl`) or ours (`--ckpt`) |
-| `scripts/compare_models.py` | Experiments A1, B1 and B2 for our model vs the published DreaMS, with 95% intervals | 
+| `scripts/compare_models.py` | Experiments A1, B1 and B2 for our model vs the published DreaMS, with 95% intervals |
 
 Training data: random samples of GeMS from the DreaMS authors (`GeMS_A1_DreaMS_rand500k.hdf5`, 2.2 GB; `rand50k`, 0.2 GB for tests), from Hugging Face `roman-bushuiev/GeMS`. The pipeline was tested on a laptop CPU with a tiny model (training, resuming, embeddings, comparison); the Colab run itself has not been tested yet.
 
