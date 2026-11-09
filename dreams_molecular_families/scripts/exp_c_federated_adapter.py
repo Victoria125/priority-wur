@@ -1,101 +1,141 @@
-"""Step 6 (Experiment C, first prototype). Can a small layer on top of the
-frozen DreaMS embeddings follow chemical structure better, and can the labs
-train it together without sharing their spectra?
+"""Step 6 (Experiment C). A small layer on frozen DreaMS embeddings, trained
+centrally or across clients: does any training help, and does federated
+training keep up with central training?
 
-Each run is one lab (one federated client). Only library-annotated spectra
-are used, because the training target is the structural similarity
-(Tanimoto) of the molecules of two spectra, as in MS2DeepScore.
+Data: library-annotated spectra that pass the checks of annotations.py, one
+spectrum per molecule and lab. The training target is the structural
+similarity (Morgan Tanimoto) of two compounds, as in MS2DeepScore. The layer
+is a 1024 -> 256 linear map on top of the frozen DreaMS embeddings.
 
-Four ways to get a spectrum similarity are compared:
-  - pre-trained DreaMS: no training, the cosine of the embeddings
-  - local: every lab trains its own layer on its own spectra
-  - centralised: one layer trained on the spectra of all labs together
-  - federated (FedAvg): every lab trains on its own spectra and a server only
-    averages the layer weights; no spectrum leaves the lab
-
-DreaMS itself stays frozen. The layer is a 1024 -> 256 linear map, so it runs
-on a laptop CPU in seconds. Test molecules are kept apart for all labs (split
-by InChIKey), so a molecule is never used for training at one lab and for
-testing at another. The settings below were fixed before looking at the test
-results; they are not tuned.
+Robust design (fixed before looking at test results):
+  - 5 random splits by molecule (first InChIKey block): 25% test, 15% of the
+    rest validation, the rest training. A molecule is never in two parts.
+  - Three ways to split the training compounds into clients:
+      labs       the natural split, one client per lab (labs with >= 5 compounds)
+      iid        the pooled compounds shuffled into 5 equal clients
+      dirichlet  5 clients with Dirichlet(0.5) shares of 8 chemical classes
+                 (k-means on the fingerprints): a label-skew partition
+  - Methods, all with the same model, learning rate and budget (300 steps, or
+    30 rounds x 10 local steps), and the step or round chosen on the
+    validation compounds (never on the test compounds):
+      pre-trained DreaMS (no training), local (mean over clients),
+      centralised (all compounds in one place), FedAvg, FedProx (mu = 0.01),
+      SplitFedV2-like split learning (the server trains on one client after
+      the other; Thapa et al. 2022, Tirana et al. 2026).
+  - Test: Spearman between the new similarity and Tanimoto over all pairs of
+    test compounds, and the analog-search top-1 Tanimoto.
+  - Every split gives one value per method; we report the mean with a 95%
+    t-interval over splits, and paired differences against pre-trained DreaMS
+    and against centralised training. An advantage is claimed only when the
+    interval of the paired difference excludes 0.
 """
 import argparse
-import hashlib
 from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
 import torch
-from rdkit import Chem, DataStructs
+from rdkit import DataStructs
 from rdkit.Chem import rdFingerprintGenerator
+from scipy import stats
 from scipy.stats import spearmanr
+from sklearn.cluster import KMeans
 
 import common as C
-from exp_b_structures import molecule, top1_tanimoto
+from annotations import validated_annotations
+from exp_b_structures import top1_tanimoto
 
-# One lab per client. The Crüsemann lab is crusemann_salstrep: it re-analyses
-# the Streptomyces data of crusemann_streptomyces too (so the two runs are not
-# independent), and no crusemann_streptomyces spectrum passes DreaMS's own check.
-DEFAULT_CLIENTS = [
-    "duncan_salinispora", "crusemann_salstrep", "chevrette_insect",
-    "dorrestein_salbus", "tahlan_streptomyces",
-]
+DEFAULT_LABS = ["duncan_salinispora", "crusemann_salstrep", "chevrette_insect",
+                "dorrestein_salbus", "tahlan_streptomyces"]
 OUT_DIR = C.EXPERIMENT_DIR / "federated_prototype"
 
-TEST_SHARE = 0.25        # share of molecules (InChIKey) kept for testing
-DIM = 256                # size of the new embedding
-LR = 3e-3
-WEIGHT_DECAY = 1e-4
-STEPS = 200              # training steps for local and centralised
-ROUNDS, LOCAL_STEPS = 20, 10   # FedAvg: 20 rounds x 10 local steps = same budget
-MIN_TEST_PER_LAB = 15    # per-lab numbers only for labs with enough test spectra
-
+N_SPLITS = 5
+TEST_SHARE, VAL_SHARE = 0.25, 0.15
+N_CLIENTS = 5                  # for the iid and dirichlet partitions
+DIRICHLET_ALPHA, N_CLASSES = 0.5, 8
+MIN_LAB_COMPOUNDS = 5          # labs with fewer training compounds are not clients
+DIM, LR, WEIGHT_DECAY = 256, 3e-3, 1e-4
+STEPS, ROUNDS, LOCAL_STEPS = 300, 30, 10
+EVAL_EVERY = 10                # validation every 10 steps (= every round)
+FEDPROX_MU = 0.01
 GENERATOR = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=2048)
 
 
-def load_lab(run, variant="protocol"):
-    """Annotated spectra of one lab: embeddings, structure keys and fingerprints."""
-    p = C.run_paths(run, variant)
-    if not (p.metadata.exists() and p.embeddings.exists()):
-        return None
-    meta, emb = C.load_metadata_and_embeddings(p)
-    rows, keys, fps = [], [], []
-    for i, smiles in enumerate(meta["smiles"]):
-        mol = molecule(smiles)
-        key = Chem.MolToInchiKey(mol)[:14] if mol is not None else ""
-        if key:
-            rows.append(i)
-            keys.append(key)
-            fps.append(GENERATOR.GetFingerprint(mol))
-    return SimpleNamespace(run=run, emb=emb[rows], keys=np.array(keys), fps=fps)
+# ---------------------------------------------------------------------------
+# Data
+# ---------------------------------------------------------------------------
+def load_compounds(labs, variant):
+    """One row per (lab, molecule): embedding, structure key and fingerprint."""
+    rows = []
+    for run in labs:
+        p = C.run_paths(run, variant)
+        if not (p.metadata.exists() and p.embeddings.exists()):
+            print(f"{run}: no {variant} spectra or embeddings, skipped.")
+            continue
+        meta, emb = C.load_metadata_and_embeddings(p)
+        selected, _ = validated_annotations(meta)
+        for _, s in selected.iterrows():
+            rows.append({"lab": run, "key": s["key"], "emb": emb[s["row"]], "fp": GENERATOR.GetFingerprint(s["mol"])})
+    return pd.DataFrame(rows)
 
 
-def is_test(key):
-    """The same molecule always lands on the same side, in every lab."""
-    return int(hashlib.md5(key.encode()).hexdigest(), 16) % 1000 < TEST_SHARE * 1000
+def split_molecules(keys, split):
+    """Random split by molecule: 'test', 'val' or 'train' for every row."""
+    unique = np.array(sorted(set(keys)))
+    rng = np.random.default_rng(1000 + split)
+    rng.shuffle(unique)
+    n_test = round(TEST_SHARE * len(unique))
+    n_val = round(VAL_SHARE * (len(unique) - n_test))
+    part = {k: "test" for k in unique[:n_test]}
+    part.update({k: "val" for k in unique[n_test:n_test + n_val]})
+    part.update({k: "train" for k in unique[n_test + n_val:]})
+    return np.array([part[k] for k in keys])
 
 
 def tanimoto(fps):
     return np.array([DataStructs.BulkTanimotoSimilarity(fp, fps) for fp in fps], dtype=np.float32)
 
 
-def training_set(emb, fps):
-    """Tensors for one training set. Most pairs of molecules are not similar, so
-    the pairs are weighted to make every Tanimoto range (10 bins) count the same."""
-    t = tanimoto(fps)
+def training_set(df):
+    """Tensors for one client. Pairs are weighted so that every Tanimoto range
+    (10 bins) counts the same, because most pairs of molecules are not similar."""
+    t = tanimoto(list(df["fp"]))
     upper = np.triu(np.ones_like(t, dtype=bool), k=1)
     bins = np.minimum((t * 10).astype(int), 9)
     counts = np.bincount(bins[upper], minlength=10).astype(float)
     w = np.where(upper, 1.0 / np.maximum(counts[bins], 1), 0.0)
-    return SimpleNamespace(
-        x=torch.tensor(emb), t=torch.tensor(t), w=torch.tensor(w / w.sum(), dtype=torch.float32), n=len(fps),
-    )
+    return SimpleNamespace(x=torch.tensor(np.stack(df["emb"])), t=torch.tensor(t),
+                           w=torch.tensor(w / max(w.sum(), 1e-12), dtype=torch.float32), n=len(df))
 
 
+def partitions(train, split):
+    """{partition name: list of client DataFrames} for the training compounds."""
+    rng = np.random.default_rng(2000 + split)
+    out = {}
+    labs = [g for _, g in train.groupby("lab") if len(g) >= MIN_LAB_COMPOUNDS]
+    if len(labs) >= 2:
+        out["labs"] = labs
+    order = rng.permutation(len(train))
+    out["iid"] = [train.iloc[order[i::N_CLIENTS]] for i in range(N_CLIENTS)]
+    fps = np.array([list(fp) for fp in train["fp"]], dtype=np.float32)
+    classes = KMeans(n_clusters=N_CLASSES, n_init=10, random_state=split).fit_predict(fps)
+    client = np.empty(len(train), dtype=int)
+    for c in range(N_CLASSES):
+        members = np.where(classes == c)[0]
+        shares = rng.dirichlet([DIRICHLET_ALPHA] * N_CLIENTS)
+        client[members] = rng.choice(N_CLIENTS, size=len(members), p=shares)
+    groups = [train.iloc[np.where(client == k)[0]] for k in range(N_CLIENTS)]
+    out["dirichlet"] = [g for g in groups if len(g) >= 2]
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Model and training
+# ---------------------------------------------------------------------------
 def new_layer(seed):
     torch.manual_seed(seed)
     layer = torch.nn.Linear(1024, DIM, bias=False)
-    torch.nn.init.orthogonal_(layer.weight)  # starts close to the DreaMS cosines
+    torch.nn.init.orthogonal_(layer.weight)
     return layer
 
 
@@ -104,74 +144,110 @@ def similarity(layer, x):
     return h @ h.T
 
 
-def train(layer, sets, steps):
-    """Full-batch training: the cosines of the new embeddings should match the Tanimoto."""
+def loss_of(layer, s):
+    return (s.w * (similarity(layer, s.x) - s.t) ** 2).sum()
+
+
+class Selector:
+    """Keeps the weights with the best validation Spearman."""
+
+    def __init__(self, val):
+        self.x = torch.tensor(np.stack(val["emb"]))
+        self.t = tanimoto(list(val["fp"]))
+        self.iu = np.triu_indices(len(val), k=1)
+        self.best, self.weights = -np.inf, None
+
+    def __call__(self, layer):
+        with torch.no_grad():
+            s = similarity(layer, self.x).numpy()
+        rho = spearmanr(self.t[self.iu], s[self.iu]).correlation
+        if rho > self.best:
+            self.best, self.weights = rho, layer.weight.detach().clone()
+
+    def best_layer(self, seed):
+        layer = new_layer(seed)
+        layer.weight.data.copy_(self.weights)
+        return layer
+
+
+def train_central(sets, val, seed):
+    """Full-batch training on the given client sets together (one optimiser)."""
+    layer, select = new_layer(seed), Selector(val)
     opt = torch.optim.Adam(layer.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
-    for _ in range(steps):
+    for step in range(1, STEPS + 1):
         opt.zero_grad()
-        loss = sum((s.w * (similarity(layer, s.x) - s.t) ** 2).sum() for s in sets) / len(sets)
-        loss.backward()
+        (sum(loss_of(layer, s) for s in sets) / len(sets)).backward()
         opt.step()
-    return layer
+        if step % EVAL_EVERY == 0:
+            select(layer)
+    return select.best_layer(seed)
 
 
-def fedavg(sets, seed):
-    """Every round, each lab starts from the global layer, trains a few steps on
-    its own spectra, and the server averages the weights (weighted by lab size)."""
-    global_layer = new_layer(seed)
+def train_federated(sets, val, seed, mu=0.0):
+    """FedAvg (mu = 0) or FedProx (mu > 0): each client starts from the global
+    layer, trains LOCAL_STEPS steps on its own compounds, the server averages."""
+    global_layer, select = new_layer(seed), Selector(val)
     share = torch.tensor([s.n for s in sets], dtype=torch.float32)
     share = share / share.sum()
     for _ in range(ROUNDS):
         weights = []
+        start = global_layer.weight.detach().clone()
         for s in sets:
             local = new_layer(seed)
-            local.load_state_dict(global_layer.state_dict())
-            weights.append(train(local, [s], LOCAL_STEPS).weight.detach())
+            local.weight.data.copy_(start)
+            opt = torch.optim.Adam(local.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
+            for _ in range(LOCAL_STEPS):
+                opt.zero_grad()
+                loss = loss_of(local, s)
+                if mu:
+                    loss = loss + mu / 2 * ((local.weight - start) ** 2).sum()
+                loss.backward()
+                opt.step()
+            weights.append(local.weight.detach())
         global_layer.weight.data.copy_(sum(a * w for a, w in zip(share, weights)))
-    return global_layer
+        select(global_layer)
+    return select.best_layer(seed)
 
 
-def split_sequential(sets, seed):
-    """Split learning in the style of SplitFedV2 (Thapa et al., AAAI 2022): the
-    frozen DreaMS model is the client part and the layer is the server part.
-    Every round the server trains on one lab after the other, so the last lab
-    of a round can make it forget the earlier ones: the intra-round forgetting
-    that Tirana et al. (AAAI 2026) describe for heterogeneous clients."""
-    layer = new_layer(seed)
+def train_split_sequential(sets, val, seed):
+    """SplitFedV2-like: the server part is trained on one client after the other."""
+    layer, select = new_layer(seed), Selector(val)
     opt = torch.optim.Adam(layer.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
     for _ in range(ROUNDS):
         for s in sets:
             for _ in range(LOCAL_STEPS):
                 opt.zero_grad()
-                (s.w * (similarity(layer, s.x) - s.t) ** 2).sum().backward()
+                loss_of(layer, s).backward()
                 opt.step()
-    return layer
+        select(layer)
+    return select.best_layer(seed)
 
 
-def performance_gap(per_lab):
-    """Performance gap of Tirana et al. (AAAI 2026, my_utils.performance_gap),
-    over labs instead of labels: for every lab, how far it is behind the best
-    other lab; averaged over labs. 0 = all labs equally well served."""
-    v = np.asarray(per_lab, dtype=float)
-    return float(np.mean([np.max(np.maximum(0, v - x)) for x in v]))
+def test_scores(layer, test):
+    x = np.stack(test["emb"])
+    if layer is None:
+        s = x @ x.T
+    else:
+        with torch.no_grad():
+            s = similarity(layer, torch.tensor(x)).numpy()
+    t = tanimoto(list(test["fp"]))
+    iu = np.triu_indices(len(test), k=1)
+    keys = test["key"].to_numpy()
+    blocked = np.eye(len(test), dtype=bool) | (keys[:, None] == keys[None, :])
+    return {"Spearman with Tanimoto": spearmanr(t[iu], s[iu]).correlation,
+            "analog search top-1 Tanimoto": top1_tanimoto(s, t, blocked)[0]}
 
 
-def apply(layer, emb):
-    with torch.no_grad():
-        return similarity(layer, torch.tensor(emb)).numpy()
-
-
-def scores(sim, t, keys, labs):
-    """Spearman with Tanimoto (all test pairs and pairs from two different labs)
-    and the analog-search top-1 Tanimoto (spectra of the same molecule skipped)."""
-    iu = np.triu_indices(len(keys), k=1)
-    cross = labs[iu[0]] != labs[iu[1]]
-    blocked = np.eye(len(keys), dtype=bool) | (keys[:, None] == keys[None, :])
-    return {
-        "Spearman, all test pairs": spearmanr(t[iu], sim[iu]).correlation,
-        "Spearman, pairs from two labs": spearmanr(t[iu][cross], sim[iu][cross]).correlation,
-        "analog search top-1 Tanimoto": top1_tanimoto(sim, t, blocked)[0],
-    }
+# ---------------------------------------------------------------------------
+# Summary
+# ---------------------------------------------------------------------------
+def t_interval(values):
+    v = np.asarray(values, dtype=float)
+    v = v[np.isfinite(v)]
+    if len(v) < 2:
+        return f"{v.mean():.3f}" if len(v) else ""
+    half = stats.t.ppf(0.975, len(v) - 1) * v.std(ddof=1) / np.sqrt(len(v))
+    return f"{v.mean():+.3f} [{v.mean() - half:+.3f}, {v.mean() + half:+.3f}]"
 
 
 def markdown(df):
@@ -182,138 +258,96 @@ def markdown(df):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--clients", nargs="*", default=DEFAULT_CLIENTS)
-    parser.add_argument("--seeds", type=int, default=3)
+    parser.add_argument("--labs", nargs="*", default=DEFAULT_LABS)
+    parser.add_argument("--splits", type=int, default=N_SPLITS)
     parser.add_argument("--variant", default="protocol", choices=list(C.VARIANTS))
     args = parser.parse_args()
     torch.set_num_threads(2)
     out_dir = OUT_DIR if args.variant == "protocol" else OUT_DIR.with_name(f"{OUT_DIR.name}_{args.variant}")
 
-    labs = []
-    for run in args.clients:
-        lab = load_lab(run, args.variant)
-        if lab is None:
-            print(f"{run}: no embeddings or no spectra in the DreaMS domain, skipped.")
-        elif len(lab.keys) < 20:
-            print(f"{run}: only {len(lab.keys)} annotated spectra, skipped.")
-        else:
-            labs.append(lab)
-    if len(labs) < 2:
-        raise SystemExit("Need at least two labs with annotated spectra.")
+    data = load_compounds(args.labs, args.variant)
+    if data["key"].nunique() < 50:
+        raise SystemExit("Fewer than 50 annotated compounds that pass the checks: too few for this experiment.")
 
-    # Split every lab by molecule, and build the pooled test set.
-    counts, train_sets, test = [], [], {"emb": [], "fps": [], "keys": [], "lab": []}
-    for lab in labs:
-        test_rows = np.array([is_test(k) for k in lab.keys])
-        tr = ~test_rows
-        counts.append((lab.run, int(tr.sum()), int(test_rows.sum()), len(set(lab.keys[tr])), len(set(lab.keys[test_rows]))))
-        train_sets.append(training_set(lab.emb[tr], [f for f, keep in zip(lab.fps, tr) if keep]))
-        test["emb"].append(lab.emb[test_rows])
-        test["fps"] += [f for f, keep in zip(lab.fps, test_rows) if keep]
-        test["keys"] += list(lab.keys[test_rows])
-        test["lab"] += [lab.run] * int(test_rows.sum())
-    test_emb = np.vstack(test["emb"])
-    test_t = tanimoto(test["fps"])
-    test_keys, test_lab = np.array(test["keys"]), np.array(test["lab"])
-    pooled_train = training_set(
-        np.vstack([s.x.numpy() for s in train_sets]),
-        [f for lab in labs for f, k in zip(lab.fps, lab.keys) if not is_test(k)],
-    )
-
-    def evaluate(method, sim, seed):
-        rows = [{"method": method, "seed": seed, "test set": "all labs", "metric": m, "value": v}
-                for m, v in scores(sim, test_t, test_keys, test_lab).items()]
-        for lab in labs:  # the lab's own test spectra
-            mask = test_lab == lab.run
-            if mask.sum() >= MIN_TEST_PER_LAB:
-                iu = np.triu_indices(int(mask.sum()), k=1)
-                t, s = test_t[np.ix_(mask, mask)], sim[np.ix_(mask, mask)]
-                rows.append({"method": method, "seed": seed, "test set": lab.run,
-                             "metric": "Spearman, all test pairs", "value": spearmanr(t[iu], s[iu]).correlation})
-        return rows
-
-    results = evaluate("pre-trained DreaMS (no training)", test_emb @ test_emb.T, 0)
-    for seed in range(args.seeds):
-        print(f"Seed {seed}: local, centralised and federated training...")
-        local = []
-        for lab, s in zip(labs, train_sets):
-            sim = apply(train(new_layer(seed), [s], STEPS), test_emb)
-            local += [dict(r, method="local (mean over labs)") for r in evaluate(lab.run, sim, seed)
-                      if r["test set"] == "all labs"]
-            # a lab's local model on its own test spectra
-            local += [dict(r, method="local (own lab only)") for r in evaluate(lab.run, sim, seed)
-                      if r["test set"] == lab.run]
-        results += local
-        results += evaluate("centralised (all spectra in one place)", apply(train(new_layer(seed), [pooled_train], STEPS), test_emb), seed)
-        # Control: all spectra in one place, but only pairs from the same lab (what FedAvg can see).
-        results += evaluate("centralised, pairs within one lab only", apply(train(new_layer(seed), train_sets, STEPS), test_emb), seed)
-        results += evaluate("federated (FedAvg, spectra stay in the lab)", apply(fedavg(train_sets, seed), test_emb), seed)
-        results += evaluate("split learning, labs one after the other (SplitFedV2-like)",
-                            apply(split_sequential(train_sets, seed), test_emb), seed)
+    results, sizes = [], []
+    for split in range(args.splits):
+        part = split_molecules(data["key"].to_numpy(), split)
+        train, val, test = data[part == "train"], data[part == "val"], data[part == "test"]
+        seed = split
+        base = test_scores(None, test)
+        for partition, clients in partitions(train, split).items():
+            sets = [training_set(c) for c in clients]
+            sizes.append({"split": split, "partition": partition, "clients": len(clients),
+                          "compounds per client": ", ".join(str(len(c)) for c in clients),
+                          "validation": len(val), "test": len(test)})
+            methods = {"pre-trained DreaMS (no training)": base}
+            local = [test_scores(train_central([s], val, seed), test) for s in sets]
+            methods["local (mean over clients)"] = {m: np.mean([r[m] for r in local]) for m in base}
+            methods["centralised (all compounds in one place)"] = test_scores(
+                train_central([training_set(pd.concat(clients))], val, seed), test)
+            methods["FedAvg"] = test_scores(train_federated(sets, val, seed), test)
+            methods[f"FedProx (mu={FEDPROX_MU})"] = test_scores(train_federated(sets, val, seed, FEDPROX_MU), test)
+            methods["SplitFedV2-like (clients one after the other)"] = test_scores(
+                train_split_sequential(sets, val, seed), test)
+            for method, scores in methods.items():
+                for metric, value in scores.items():
+                    results.append({"split": split, "partition": partition, "method": method,
+                                    "metric": metric, "value": value})
+        print(f"split {split + 1}/{args.splits} done")
 
     df = pd.DataFrame(results)
-    # Performance gap between labs, from each lab's own test spectra.
-    per_lab = df[(df["test set"] != "all labs") & (df["metric"] == "Spearman, all test pairs")]
-    gaps = [{"method": m, "seed": s, "test set": "all labs", "metric": "performance gap between labs",
-             "value": performance_gap(g["value"])}
-            for (m, s), g in per_lab.groupby(["method", "seed"]) if len(g) >= 2]
-    df = pd.concat([df, pd.DataFrame(gaps)], ignore_index=True)
     out_dir.mkdir(exist_ok=True)
     df.to_parquet(out_dir / "exp_c_all_runs.parquet", index=False)
+    pd.DataFrame(sizes).to_parquet(out_dir / "exp_c_partitions.parquet", index=False)
 
-    order = ["pre-trained DreaMS (no training)", "local (mean over labs)", "local (own lab only)",
-             "centralised (all spectra in one place)", "centralised, pairs within one lab only",
-             "federated (FedAvg, spectra stay in the lab)",
-             "split learning, labs one after the other (SplitFedV2-like)"]
-    agg = df.groupby(["test set", "metric", "method"])["value"].agg(["mean", "std"]).reset_index()
-    agg["value"] = [f"{m:.3f}" if np.isnan(s) or s == 0 else f"{m:.3f} ± {s:.3f}" for m, s in zip(agg["mean"], agg["std"])]
+    tables = []
+    for metric in ["Spearman with Tanimoto", "analog search top-1 Tanimoto"]:
+        d = df[df["metric"] == metric]
+        wide = d.pivot_table(index=["partition", "split"], columns="method", values="value")
+        rows = []
+        for partition, g in wide.groupby(level=0):
+            for method in wide.columns:
+                rows.append({
+                    "partition": partition, "method": method,
+                    f"{metric} (mean, 95% CI over splits)": t_interval(g[method]),
+                    "minus pre-trained (paired)": "" if method.startswith("pre-trained") else
+                    t_interval(g[method] - g["pre-trained DreaMS (no training)"]),
+                    "minus centralised (paired)": "" if method.startswith(("centralised", "pre-trained")) else
+                    t_interval(g[method] - g["centralised (all compounds in one place)"]),
+                })
+        tables.append((metric, pd.DataFrame(rows)))
 
-    main_table = agg[agg["test set"] == "all labs"].pivot(index="method", columns="metric", values="value")
-    main_table = main_table.reindex([m for m in order if m in main_table.index]).reset_index()
-    lab_table = agg[(agg["test set"] != "all labs")].pivot(index="method", columns="test set", values="value")
-    lab_table = lab_table.reindex([m for m in order if m in lab_table.index]).reset_index()
-    data_table = pd.DataFrame(counts, columns=["lab (client)", "train spectra", "test spectra", "train molecules", "test molecules"])
-
+    size_table = (pd.DataFrame(sizes).groupby("partition")
+                  .agg(clients=("clients", "first"), example_split_0=("compounds per client", "first"),
+                       validation=("validation", "first"), test=("test", "first")).reset_index())
+    per_lab = data.groupby("lab")["key"].nunique().rename("compounds").reset_index()
     text = "\n".join([
-        "# Experiment C (first prototype): a federated layer on top of frozen DreaMS",
+        "# Experiment C: a layer on frozen DreaMS, trained centrally and across clients",
         "",
-        f"*Variant: {args.variant}* (see `common.VARIANTS`).",
+        f"Generated by `scripts/exp_c_federated_adapter.py`, variant `{args.variant}`. {args.splits} random splits by "
+        f"molecule (test {TEST_SHARE:.0%}, validation {VAL_SHARE:.0%} of the rest). The design is described at the top "
+        "of the script; it was fixed before looking at test results. Values are means over splits with a 95% "
+        "t-interval. *Paired* columns compare methods on the same split. **An advantage is claimed only when the "
+        "paired interval excludes 0.**",
         "",
-        f"Generated by `scripts/exp_c_federated_adapter.py`. {args.seeds} seeds (mean ± sd). "
-        "Target: Tanimoto of Morgan fingerprints (radius 2, 2048 bits) of the library-annotated spectra. "
-        f"Test molecules ({TEST_SHARE:.0%} of InChIKeys) are kept apart for all labs. "
-        f"Layer: linear 1024 -> {DIM}; {STEPS} steps for local and centralised, "
-        f"FedAvg {ROUNDS} rounds x {LOCAL_STEPS} local steps. Settings fixed in advance, not tuned.",
+        "## Compounds",
         "",
-        "## Data per lab",
+        "Library-annotated compounds that pass the checks of `annotations.py`, per lab:",
         "",
-        markdown(data_table),
+        markdown(per_lab),
         "",
-        "## Pooled test set (test spectra of all labs)",
+        "Clients per partition (compounds per client shown for split 0):",
         "",
-        "*Pairs from two labs* uses only pairs of spectra measured in different labs. "
-        "*Analog search* takes the most similar spectrum of another molecule and reports the Tanimoto of the two molecules. "
-        "*Performance gap between labs* is the metric of Tirana et al. (AAAI 2026) over labs instead of labels, "
-        f"from each lab's own test spectra (labs with at least {MIN_TEST_PER_LAB}); 0 = all labs equally well served.",
+        markdown(size_table),
         "",
-        "With DreaMS frozen on the client side, split learning in which the server may pair spectra from "
-        "different labs is the same as *centralised* training on the embeddings: the server sees every lab's "
-        "embeddings. *SplitFedV2-like* keeps the labs apart and trains on them one after the other.",
-        "",
-        markdown(main_table),
-        "",
-        "## Each lab's own test spectra (Spearman with Tanimoto)",
-        "",
-        f"Only labs with at least {MIN_TEST_PER_LAB} test spectra.",
-        "",
-        markdown(lab_table),
-        "",
+        *[part for metric, table in tables for part in (f"## {metric}", "", markdown(table), "")],
         "## Limitations",
         "",
-        "- Library hits are putative annotations, so the target is noisy.",
-        "- The DreaMS embedding model was fine-tuned on public library spectra; some of these molecules may be among them, which favours the pre-trained model.",
-        "- Few annotated spectra in most labs; the per-lab numbers are uncertain.",
-        "- FedAvg is simulated on one machine, without communication cost or privacy measures.",
+        "- Few compounds: most come from one lab (Tahlan), so the natural partition has few, very unequal clients.",
+        "- Library annotations are putative even after the checks; the target is noisy.",
+        "- The DreaMS embedding model was fine-tuned on public library spectra; some test molecules may be among "
+        "them, which favours the pre-trained model.",
+        "- Simulated on one machine, without communication costs or privacy measures.",
     ])
     (out_dir / "RESULTS_federated_prototype.md").write_text(text + "\n", encoding="utf-8")
     print(text)
