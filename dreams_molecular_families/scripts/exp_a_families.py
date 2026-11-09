@@ -102,7 +102,8 @@ def main():
     # Baseline 1: neighbours chosen only by precursor m/z (closest masses).
     nn_mass, _ = knn(lambda a, b: -np.abs(pmz[a:b, None] - pmz[None, :]), n, args.k)
     # Baseline 2: cosine of binned spectra (a spectral score without learning).
-    binned = C.binned_vectors(C.read_clean_spectra(p, meta))
+    # Same input as DreaMS: the 100 most intense peaks of each spectrum.
+    binned = C.binned_vectors([C.top_peaks(s) for s in C.read_clean_spectra(p, meta)])
     nn_binned, _ = knn(lambda a, b: binned[a:b] @ binned.T, n, args.k)
 
     rec_dreams = family_recovery(nn_dreams, labels, sizes, queries, args.k)

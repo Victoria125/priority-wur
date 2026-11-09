@@ -9,5 +9,6 @@
   "device": "CPU",
   "seconds": 1171,
   "computed_on": "2026-11-02T18:11:52",
-  "machine": "Windows-10-10.0.26200-SP0"
+  "machine": "Windows-10-10.0.26200-SP0",
+  "spectra_fingerprint": "ff8123948fb7e75748b45cda5c48ca91"
 }

@@ -1,0 +1,29 @@
+{
+  "run": "crusemann_salstrep",
+  "PoDP dataset": "MSV000078836",
+  "documented sources": [
+    "MSV000078836",
+    "MSV000078839"
+  ],
+  "spectra files": 675,
+  "library files": 32,
+  "other files": 2,
+  "sources": [
+    {
+      "source": "workspace:mcruesemann",
+      "spectra files": 432,
+      "names found in": "MSV000078836",
+      "share found": 0.84,
+      "names in PoDP dataset": 363
+    },
+    {
+      "source": "MSV000078839",
+      "spectra files": 243,
+      "names found in": "MSV000078839",
+      "share found": 0.996,
+      "names in PoDP dataset": 0
+    }
+  ],
+  "problems": [],
+  "ok": true
+}

@@ -7,20 +7,20 @@ the labs look the same; 1.0 means they are completely separated.
 
 Labs differ in chemistry (other genera, other molecules) and in measurement
 (instrument, settings, year). To separate the two, the test is repeated on
-library-annotated spectra of molecules that both labs measured: if the labs
-are still told apart there, the difference comes from the measurement.
+library-annotated spectra of molecules that both labs measured (annotations
+that pass the checks of annotations.py): if the labs are still told apart
+there, the difference comes from the measurement.
 """
 import argparse
 import itertools
 
 import numpy as np
 import pandas as pd
-from rdkit import Chem
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 
 import common as C
-from exp_b_structures import molecule
+from annotations import validated_annotations
 
 DEFAULT_LABS = ["duncan_salinispora", "crusemann_salstrep", "chevrette_insect",
                 "dorrestein_salbus", "tahlan_streptomyces"]
@@ -34,15 +34,15 @@ def load(run, variant):
     if not (p.metadata.exists() and p.embeddings.exists()):
         return None
     meta, emb = C.load_metadata_and_embeddings(p)
-    reps = {"DreaMS": emb, "binned spectrum": C.binned_vectors(C.read_clean_spectra(p, meta))}
+    inputs = [C.top_peaks(s) for s in C.read_clean_spectra(p, meta)]  # same peaks as DreaMS
+    reps = {"DreaMS": emb, "binned spectrum": C.binned_vectors(inputs)}
     ms2ds = C.load_ms2deepscore(p)
     if ms2ds is not None:
         reps["MS2DeepScore"] = ms2ds
-    keys = []
-    for smiles in meta["smiles"]:
-        mol = molecule(smiles)
-        keys.append(Chem.MolToInchiKey(mol)[:14] if mol is not None else "")
-    return {"reps": reps, "keys": np.array(keys)}
+    keys = np.full(len(meta), "", dtype=object)
+    selected, _ = validated_annotations(meta)
+    keys[selected["row"].to_numpy()] = selected["key"].to_numpy()
+    return {"reps": reps, "keys": keys}
 
 
 def separability(x_a, x_b, seed=0):

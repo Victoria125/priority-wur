@@ -13,15 +13,17 @@
   "spectra with peaks": 4707,
   "GNPS network edges": 4393,
   "spectra (all_kept)": 2053,
+  "spectra with unknown charge in GNPS (all_kept)": 962,
   "spectra in a GNPS family (size >= 2) (all_kept)": 1398,
   "GNPS families (size >= 2) (all_kept)": 193,
   "GNPS edges between these spectra (all_kept)": 2670,
   "library hits with a structure (SMILES) (all_kept)": 54,
-  "MGF md5 (all_kept)": "f2b6fb3b4b37d7d948170be0a0b8a9c5",
+  "MGF md5 (all_kept)": "96fee13081a0c9fb9a7eaf12fe345ed2",
   "spectra (protocol)": 2392,
+  "spectra with unknown charge in GNPS (protocol)": 1070,
   "spectra in a GNPS family (size >= 2) (protocol)": 1388,
   "GNPS families (size >= 2) (protocol)": 193,
   "GNPS edges between these spectra (protocol)": 2655,
   "library hits with a structure (SMILES) (protocol)": 54,
-  "MGF md5 (protocol)": "1deb92882960cc4e20f2fdcdfa7d37ba"
+  "MGF md5 (protocol)": "a91a18b3a6a63df7768b6cc504c7e85d"
 }

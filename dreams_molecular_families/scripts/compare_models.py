@@ -21,14 +21,14 @@ import numpy as np
 import pandas as pd
 from matchms import Spectrum
 from matchms.similarity import ModifiedCosine
-from rdkit import Chem, DataStructs
+from rdkit import DataStructs
 from rdkit.Chem import rdFingerprintGenerator
 from scipy.stats import spearmanr
 
 import common as C
 from exp_a_families import family_recovery, knn
-from exp_b_structures import (MIN_UNIQUE_STRUCTURES, fragment_tolerance, molecule, spearman_difference_ci,
-                              top1_values)
+from annotations import validated_annotations
+from exp_b_structures import MIN_UNIQUE_STRUCTURES, fragment_tolerance, spearman_difference_ci, top1_values
 
 warnings.filterwarnings("ignore")
 OUT_DIR = C.EXPERIMENT_DIR / "model_comparison"
@@ -40,7 +40,7 @@ def load_named(p, name):
     path, info = p.data / f"{name}_embeddings_protocol.npy", p.data / f"{name}_embeddings_protocol.json"
     if not (path.exists() and info.exists()):
         return None
-    if C.read_json(info).get("clean_mgf_md5") != C.md5sum(p.clean_mgf):
+    if not C.embeddings_up_to_date(info, p.clean_mgf):
         print(f"{p.name}: {name} embeddings are out of date; skipped.")
         return None
     emb = np.load(path).astype(np.float32)
@@ -67,7 +67,7 @@ def compare_run(run, models, k=5):
         return []
     meta, reps = representations(p, models)
     rows = []
-    spectra = C.read_clean_spectra(p, meta)
+    spectra = [C.top_peaks(s) for s in C.read_clean_spectra(p, meta)]  # same peaks as DreaMS
 
     # A1. Family recovery@5
     labels, sizes = C.family_labels(meta), meta["family_size"].to_numpy()
@@ -87,15 +87,14 @@ def compare_run(run, models, k=5):
                          C.ci_text(*C.bootstrap_mean_ci(recovery[name] - recovery[REFERENCE], labels[queries]))))
 
     # B. Structure, only library-annotated spectra
-    mols = [molecule(s) for s in meta["smiles"]]
-    idx = [i for i, m in enumerate(mols) if m is not None]
-    keys = np.array([Chem.MolToInchiKey(mols[i])[:14] for i in idx])
+    selected, _ = validated_annotations(meta)
+    idx, keys, mols = selected["row"].tolist(), selected["key"].to_numpy(), selected["mol"].tolist()
     n_structures = len(set(keys))
     rows.append((run, "B unique structures", "", n_structures))
     if n_structures < MIN_UNIQUE_STRUCTURES:
         return rows
     generator = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=2048)
-    fps = [generator.GetFingerprint(mols[i]) for i in idx]
+    fps = [generator.GetFingerprint(m) for m in mols]
     tanimoto = np.array([DataStructs.BulkTanimotoSimilarity(fp, fps) for fp in fps])
     scores_b = {name: e[idx] @ e[idx].T for name, e in reps.items()}
     specs = [Spectrum(mz=spectra[i]["mz"].astype(float),

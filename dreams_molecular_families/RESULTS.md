@@ -6,10 +6,11 @@
 
 |  | duncan_salinispora | crusemann_salstrep | crusemann_streptomyces | chevrette_insect | dorrestein_salbus | tahlan_streptomyces |
 |---|---|---|---|---|---|---|
-| dataset | Salinispora, Duncan et al. 2015 | Salinispora + Streptomyces, Crüsemann et al. 2017 | Streptomyces, Crüsemann et al. 2017 | Insect-associated actinobacteria, Chevrette et al. 2019 | Streptomyces albus J1074, Dorrestein lab | Clavulanic acid producing Streptomyces, Tahlan lab |
+| dataset | Salinispora, Duncan et al. 2015 | Salinispora (MSV000078836) + Streptomyces (MSV000078839), Crüsemann et al. 2017 | Streptomyces, Crüsemann et al. 2017 | Insect-associated actinobacteria, Chevrette et al. 2019 | Streptomyces albus J1074, Dorrestein lab | Clavulanic acid producing Streptomyces, Tahlan lab |
 | MassIVE dataset (PoDP) | MSV000079284 | MSV000078836 | MSV000078839 | MSV000084723 | MSV000079519 | MSV000083835 |
 | GNPS task | c22f44b14a3d450eb836d607cb9521bb | 9360fa514804487a9d39b7e7d7e6d514 | 840eadb054f74d74ae42152a08ed9628 | 927974dc1fe640d081b1467464815efa | 7e463ca89a7c41958a0d0b993ee52131 | b5eb34985777438aaf0f87e31889384c |
 | GNPS workflow | METABOLOMICS-SNETS | METABOLOMICS-SNETS | METABOLOMICS-SNETS-V2 | METABOLOMICS-SNETS-V2 | METABOLOMICS-SNETS-V2 | METABOLOMICS-SNETS-V2 |
+| spectra sources (provenance check) | ok: MSV000079484 (50 files) | ok: workspace:mcruesemann (432 files); MSV000078839 (243 files) | ok: MSV000078839 (360 files) | ok: MSV000084723 (122 files) | ok: MSV000079519 (7 files) | ok: MSV000083835 (95 files) |
 | fragment tolerance used by GNPS (Da) | 0.3 | 0.5 | 0.5 | 0.02 | 0.01 | 0.02 |
 | min cosine for GNPS edges | 0.5 | 0.5 | 0.7 | 0.6 | 0.6 | 0.7 |
 | spectra with peaks | 25935 | 6246 | 2834 | 1214 | 4707 | 12719 |
@@ -19,11 +20,12 @@
 | share (all_kept) | 11% | 59% | 70% | 68% | 44% | 70% |
 | GNPS families (size >= 2) (protocol) | 13 | 282 |  | 97 | 193 | 1027 |
 | GNPS edges between these spectra (protocol) | 88 | 3902 |  | 903 | 2655 | 8047 |
+| spectra with unknown charge in GNPS (protocol) | 0 | 1182 |  | 785 | 1070 | 1916 |
 | library hits with a structure (SMILES) (protocol) | 135 | 55 |  | 36 | 54 | 442 |
 
 ## Main numbers (DreaMS protocol)
 
-Only spectra that pass DreaMS's own format A check, given to every method exactly as GNPS gives them (`protocol` variant). Recovery@5 is the share of possible GNPS family partners among the 5 nearest neighbours (1.0 = all). Tanimoto and MHFP compare the structures of library-annotated spectra. *Analog search* skips spectra of the same molecule. Differences are shown with a 95% bootstrap interval; an interval that contains 0 means no detectable difference. Empty column: no spectra pass DreaMS's own check.
+Only spectra that pass DreaMS's own format A check, given to every method exactly as GNPS gives them (`protocol` variant). Recovery@5 is the share of possible GNPS family partners among the 5 nearest neighbours (1.0 = all). Tanimoto and MHFP compare the structures of library-annotated compounds that pass the checks of `annotations.py` (no analog-search hits, one spectrum per molecule); every method gets the same 100 most intense peaks. *Analog search* takes the most similar spectrum of another molecule. Differences are shown with a 95% bootstrap interval; an interval that contains 0 means no detectable difference. Empty column: no spectra pass DreaMS's own check.
 
 |  | duncan_salinispora | crusemann_salstrep | crusemann_streptomyces | chevrette_insect | dorrestein_salbus | tahlan_streptomyces |
 |---|---|---|---|---|---|---|
@@ -38,25 +40,26 @@ Only spectra that pass DreaMS's own format A check, given to every method exactl
 | A2 median DreaMS sim., random pairs | 0.345 | 0.204 |  | 0.202 | 0.186 | 0.148 |
 | A3 largest DreaMS family (threshold 0.7) | 96 | 461 |  | 188 | 500 | 1,201 |
 | A3 AMI, spectra in GNPS families (0.7) | 0.806 | 0.615 |  | 0.655 | 0.571 | 0.502 |
-| B annotated spectra used | 130 | 21 |  | 29 | 32 | 420 |
-| B unique structures | 112 | 16 |  | 23 | 27 | 324 |
-| B used for conclusions (>= 100 structures) | yes | no |  | no | no | yes |
-| B1 Spearman with Tanimoto: DreaMS | 0.071 | 0.024 |  | 0.36 | 0.071 | 0.229 |
-| B1 Spearman with Tanimoto: MS2DeepScore | 0.064 | 0.161 |  | 0.414 | 0.185 | 0.261 |
-| B1 Spearman with Tanimoto: modified cosine | 0.089 | 0.097 |  | 0.378 | 0.234 | 0.259 |
-| B1 Spearman with Tanimoto: binned cosine | 0.071 | 0.05 |  | 0.201 | 0.19 | 0.203 |
-| B1 DreaMS minus modified cosine (95% CI) | -0.018 [-0.090, +0.052] | -0.073 [-0.455, +0.328] |  | -0.018 [-0.232, +0.142] | -0.163 [-0.357, +0.022] | -0.030 [-0.077, +0.014] |
-| B1 DreaMS minus MS2DeepScore (95% CI) | +0.007 [-0.095, +0.117] | -0.136 [-0.407, +0.296] |  | -0.054 [-0.249, +0.106] | -0.114 [-0.325, +0.090] | -0.033 [-0.084, +0.013] |
-| B1 Spearman with MHFP: DreaMS | 0.139 | 0.005 |  | 0.462 | 0.331 | 0.273 |
-| B1 Spearman with MHFP: MS2DeepScore | 0.105 | 0.306 |  | 0.492 | 0.331 | 0.335 |
-| B1 Spearman with MHFP: modified cosine | 0.093 | 0.173 |  | 0.429 | 0.424 | 0.331 |
-| B2 analog search top-1 Tanimoto: DreaMS | 0.129 | 0.265 |  | 0.484 | 0.268 | 0.399 |
-| B2 analog search top-1 Tanimoto: MS2DeepScore | 0.135 | 0.094 |  | 0.461 | 0.335 | 0.386 |
-| B2 analog search top-1 Tanimoto: modified cosine | 0.146 | 0.363 |  | 0.457 | 0.305 | 0.408 |
-| B2 analog search top-1 Tanimoto: binned cosine | 0.131 | 0.144 |  | 0.476 | 0.29 | 0.375 |
-| B2 analog search top-1 Tanimoto: random | 0.113 | 0.118 |  | 0.206 | 0.127 | 0.128 |
-| B2 DreaMS minus modified cosine (95% CI) | -0.017 [-0.040, +0.008] | -0.098 [-0.174, -0.001] |  | +0.027 [-0.005, +0.086] | -0.037 [-0.122, +0.044] | -0.009 [-0.032, +0.017] |
-| B2 DreaMS minus MS2DeepScore (95% CI) | -0.007 [-0.026, +0.008] | +0.171 [-0.009, +0.367] |  | +0.023 [+0.000, +0.045] | -0.067 [-0.148, -0.004] | +0.013 [-0.010, +0.040] |
+| B library hits with a SMILES | 135 | 55 |  | 36 | 54 | 442 |
+| B exact-mass hits (no analogs) | 2 | 8 |  | 28 | 32 | 419 |
+| B independent compounds after all checks | 1 | 2 |  | 21 | 16 | 176 |
+| B used for conclusions (>= 100 structures) |  |  |  | no |  | yes |
+| B1 Spearman with Tanimoto: DreaMS |  |  |  | 0.265 |  | 0.266 |
+| B1 Spearman with Tanimoto: MS2DeepScore |  |  |  | 0.361 |  | 0.319 |
+| B1 Spearman with Tanimoto: modified cosine |  |  |  | 0.208 |  | 0.292 |
+| B1 Spearman with Tanimoto: binned cosine |  |  |  | 0.169 |  | 0.228 |
+| B1 DreaMS minus modified cosine (95% CI) |  |  |  | +0.057 [-0.159, +0.254] |  | -0.026 [-0.086, +0.039] |
+| B1 DreaMS minus MS2DeepScore (95% CI) |  |  |  | -0.096 [-0.328, +0.155] |  | -0.053 [-0.144, +0.015] |
+| B1 Spearman with MHFP: DreaMS |  |  |  | 0.441 |  | 0.307 |
+| B1 Spearman with MHFP: MS2DeepScore |  |  |  | 0.506 |  | 0.404 |
+| B1 Spearman with MHFP: modified cosine |  |  |  | 0.303 |  | 0.34 |
+| B2 analog search top-1 Tanimoto: DreaMS |  |  |  | 0.475 |  | 0.508 |
+| B2 analog search top-1 Tanimoto: MS2DeepScore |  |  |  | 0.433 |  | 0.507 |
+| B2 analog search top-1 Tanimoto: modified cosine |  |  |  | 0.472 |  | 0.499 |
+| B2 analog search top-1 Tanimoto: binned cosine |  |  |  | 0.485 |  | 0.483 |
+| B2 analog search top-1 Tanimoto: random |  |  |  | 0.182 |  | 0.142 |
+| B2 DreaMS minus modified cosine (95% CI) |  |  |  | +0.003 [-0.017, +0.022] |  | +0.009 [-0.020, +0.038] |
+| B2 DreaMS minus MS2DeepScore (95% CI) |  |  |  | +0.042 [-0.009, +0.117] |  | +0.001 [-0.026, +0.029] |
 
 ## Sensitivity analysis: our cleaning (all_kept)
 
@@ -75,25 +78,26 @@ Our cleaning removes the peaks above the precursor before it applies the format 
 | A2 median DreaMS sim., random pairs | 0.426 | 0.206 | 0.193 | 0.197 | 0.174 | 0.149 |
 | A3 largest DreaMS family (threshold 0.7) | 2,583 | 588 | 78 | 190 | 512 | 1,192 |
 | A3 AMI, spectra in GNPS families (0.7) | 0.539 | 0.599 | 0.703 | 0.712 | 0.57 | 0.504 |
-| B annotated spectra used | 388 | 21 | 23 | 29 | 32 | 420 |
-| B unique structures | 173 | 16 | 18 | 23 | 27 | 324 |
-| B used for conclusions (>= 100 structures) | yes | no | no | no | no | yes |
-| B1 Spearman with Tanimoto: DreaMS | 0.197 | 0.023 | 0.144 | 0.36 | 0.064 | 0.23 |
-| B1 Spearman with Tanimoto: MS2DeepScore | 0.206 | 0.161 | 0.238 | 0.414 | 0.185 | 0.262 |
-| B1 Spearman with Tanimoto: modified cosine | 0.255 | 0.097 | 0.121 | 0.378 | 0.234 | 0.259 |
-| B1 Spearman with Tanimoto: binned cosine | 0.253 | 0.05 | 0.154 | 0.201 | 0.191 | 0.203 |
-| B1 DreaMS minus modified cosine (95% CI) | -0.058 [-0.122, +0.028] | -0.074 [-0.456, +0.337] | +0.023 [-0.241, +0.287] | -0.018 [-0.232, +0.142] | -0.170 [-0.362, +0.012] | -0.029 [-0.075, +0.015] |
-| B1 DreaMS minus MS2DeepScore (95% CI) | -0.009 [-0.086, +0.060] | -0.139 [-0.409, +0.297] | -0.094 [-0.379, +0.172] | -0.054 [-0.249, +0.106] | -0.120 [-0.331, +0.080] | -0.032 [-0.084, +0.014] |
-| B1 Spearman with MHFP: DreaMS | 0.216 | 0.004 | 0.307 | 0.462 | 0.331 | 0.274 |
-| B1 Spearman with MHFP: MS2DeepScore | 0.197 | 0.311 | 0.629 | 0.492 | 0.331 | 0.335 |
-| B1 Spearman with MHFP: modified cosine | 0.254 | 0.173 | 0.272 | 0.429 | 0.424 | 0.331 |
-| B2 analog search top-1 Tanimoto: DreaMS | 0.2 | 0.265 | 0.313 | 0.484 | 0.268 | 0.4 |
-| B2 analog search top-1 Tanimoto: MS2DeepScore | 0.195 | 0.094 | 0.276 | 0.461 | 0.335 | 0.386 |
-| B2 analog search top-1 Tanimoto: modified cosine | 0.205 | 0.363 | 0.398 | 0.457 | 0.305 | 0.408 |
-| B2 analog search top-1 Tanimoto: binned cosine | 0.197 | 0.144 | 0.315 | 0.476 | 0.29 | 0.375 |
-| B2 analog search top-1 Tanimoto: random | 0.131 | 0.118 | 0.131 | 0.206 | 0.127 | 0.128 |
-| B2 DreaMS minus modified cosine (95% CI) | -0.006 [-0.021, +0.010] | -0.098 [-0.174, -0.001] | -0.085 [-0.199, +0.005] | +0.027 [-0.005, +0.086] | -0.037 [-0.122, +0.044] | -0.008 [-0.031, +0.018] |
-| B2 DreaMS minus MS2DeepScore (95% CI) | +0.005 [-0.012, +0.019] | +0.171 [-0.009, +0.367] | +0.037 [-0.024, +0.100] | +0.023 [+0.000, +0.045] | -0.067 [-0.148, -0.004] | +0.014 [-0.010, +0.041] |
+| B library hits with a SMILES | 403 | 58 | 38 | 41 | 54 | 442 |
+| B exact-mass hits (no analogs) | 1 | 8 | 16 | 28 | 32 | 419 |
+| B independent compounds after all checks | 1 | 2 | 14 | 21 | 16 | 176 |
+| B used for conclusions (>= 100 structures) |  |  |  | no |  | yes |
+| B1 Spearman with Tanimoto: DreaMS |  |  |  | 0.265 |  | 0.267 |
+| B1 Spearman with Tanimoto: MS2DeepScore |  |  |  | 0.361 |  | 0.319 |
+| B1 Spearman with Tanimoto: modified cosine |  |  |  | 0.208 |  | 0.292 |
+| B1 Spearman with Tanimoto: binned cosine |  |  |  | 0.169 |  | 0.228 |
+| B1 DreaMS minus modified cosine (95% CI) |  |  |  | +0.057 [-0.159, +0.254] |  | -0.025 [-0.086, +0.040] |
+| B1 DreaMS minus MS2DeepScore (95% CI) |  |  |  | -0.096 [-0.328, +0.155] |  | -0.052 [-0.144, +0.017] |
+| B1 Spearman with MHFP: DreaMS |  |  |  | 0.441 |  | 0.308 |
+| B1 Spearman with MHFP: MS2DeepScore |  |  |  | 0.506 |  | 0.403 |
+| B1 Spearman with MHFP: modified cosine |  |  |  | 0.303 |  | 0.339 |
+| B2 analog search top-1 Tanimoto: DreaMS |  |  |  | 0.475 |  | 0.509 |
+| B2 analog search top-1 Tanimoto: MS2DeepScore |  |  |  | 0.433 |  | 0.507 |
+| B2 analog search top-1 Tanimoto: modified cosine |  |  |  | 0.472 |  | 0.499 |
+| B2 analog search top-1 Tanimoto: binned cosine |  |  |  | 0.485 |  | 0.483 |
+| B2 analog search top-1 Tanimoto: random |  |  |  | 0.182 |  | 0.142 |
+| B2 DreaMS minus modified cosine (95% CI) |  |  |  | +0.003 [-0.017, +0.022] |  | +0.010 [-0.020, +0.039] |
+| B2 DreaMS minus MS2DeepScore (95% CI) |  |  |  | +0.042 [-0.009, +0.117] |  | +0.002 [-0.025, +0.031] |
 
 ## duncan_salinispora: Salinispora, Duncan et al. 2015
 
@@ -155,34 +159,15 @@ Embeddings: 528 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 49
 
 | metric | value | note |
 |---|---|---|
-| annotated spectra used | 130 | GNPS library hit with a valid structure |
-| unique structures | 112 | first block of the InChIKey |
-| B used for conclusions | yes | needs >= 100 unique structures |
-| fragment tolerance for modified cosine (Da) | 0.3 | taken from the GNPS job |
-| B1 Spearman (Tanimoto vs DreaMS) | 0.071 | 8,385 pairs |
-| B1 Spearman (Tanimoto vs MS2DeepScore) | 0.064 | 8,385 pairs |
-| B1 Spearman (Tanimoto vs modified cosine) | 0.089 | 8,385 pairs |
-| B1 Spearman (Tanimoto vs binned spectrum cosine) | 0.071 | 8,385 pairs |
-| B1 Spearman (MHFP vs DreaMS) | 0.139 | MHFP Jaccard |
-| B1 Spearman (MHFP vs MS2DeepScore) | 0.105 | MHFP Jaccard |
-| B1 Spearman (MHFP vs modified cosine) | 0.093 | MHFP Jaccard |
-| B1 Spearman (MHFP vs binned spectrum cosine) | 0.082 | MHFP Jaccard |
-| B1 Spearman with Tanimoto, DreaMS minus modified cosine (95% CI) | -0.018 [-0.090, +0.052] | resampling molecules |
-| B1 Spearman with Tanimoto, DreaMS minus MS2DeepScore (95% CI) | +0.007 [-0.095, +0.117] | resampling molecules |
-| B2 top-1 neighbour Tanimoto, any molecule: DreaMS | 0.198 | 130 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: MS2DeepScore | 0.17 | 130 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: modified cosine | 0.225 | 130 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: binned spectrum cosine | 0.201 | 130 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: random | 0.115 | chance level |
-| B2 top-1 neighbour Tanimoto, any molecule: best possible | 0.504 | upper limit |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): DreaMS | 0.129 | 130 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): MS2DeepScore | 0.135 | 130 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): modified cosine | 0.146 | 130 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): binned spectrum cosine | 0.131 | 130 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): random | 0.113 | chance level |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): best possible | 0.347 | upper limit |
-| B2 analog search, DreaMS minus modified cosine (95% CI) | -0.017 [-0.040, +0.008] | resampling query molecules |
-| B2 analog search, DreaMS minus MS2DeepScore (95% CI) | -0.007 [-0.026, +0.008] | resampling query molecules |
+| annotation check: library hits with a SMILES | 135 | spectra left |
+| annotation check: SMILES read by RDKit | 130 | spectra left |
+| annotation check: exact-mass hits (|query - library precursor| <= 0.05 Da) | 2 | spectra left |
+| annotation check: MQScore >= 0.7 and >= 6 shared peaks | 1 | spectra left |
+| annotation check: InChI agrees with SMILES (when an InChI is given) | 1 | spectra left |
+| annotation check: [M+H]+ hits: library precursor agrees with the structure (<= 0.05 Da) | 1 | spectra left |
+| annotation check: independent compounds (one spectrum per molecule) | 1 | spectra left |
+| annotated spectra used | 1 | independent compounds that pass the checks |
+| note | too few annotated spectra for this test |  |
 
 ![exp_a_umap.png](runs/duncan_salinispora/results/exp_a_umap.png)
 
@@ -190,7 +175,7 @@ Embeddings: 528 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 49
 
 ![exp_b_structure.png](runs/duncan_salinispora/results/exp_b_structure.png)
 
-## crusemann_salstrep: Salinispora + Streptomyces, Crüsemann et al. 2017
+## crusemann_salstrep: Salinispora (MSV000078836) + Streptomyces (MSV000078839), Crüsemann et al. 2017
 
 Embeddings: 3,445 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 206 s (2026-11-09).
 
@@ -250,34 +235,15 @@ Embeddings: 3,445 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 
 
 | metric | value | note |
 |---|---|---|
-| annotated spectra used | 21 | GNPS library hit with a valid structure |
-| unique structures | 16 | first block of the InChIKey |
-| B used for conclusions | no | needs >= 100 unique structures |
-| fragment tolerance for modified cosine (Da) | 0.5 | taken from the GNPS job |
-| B1 Spearman (Tanimoto vs DreaMS) | 0.024 | 210 pairs |
-| B1 Spearman (Tanimoto vs MS2DeepScore) | 0.161 | 210 pairs |
-| B1 Spearman (Tanimoto vs modified cosine) | 0.097 | 210 pairs |
-| B1 Spearman (Tanimoto vs binned spectrum cosine) | 0.05 | 210 pairs |
-| B1 Spearman (MHFP vs DreaMS) | 0.005 | MHFP Jaccard |
-| B1 Spearman (MHFP vs MS2DeepScore) | 0.306 | MHFP Jaccard |
-| B1 Spearman (MHFP vs modified cosine) | 0.173 | MHFP Jaccard |
-| B1 Spearman (MHFP vs binned spectrum cosine) | 0.153 | MHFP Jaccard |
-| B1 Spearman with Tanimoto, DreaMS minus modified cosine (95% CI) | -0.073 [-0.455, +0.328] | resampling molecules |
-| B1 Spearman with Tanimoto, DreaMS minus MS2DeepScore (95% CI) | -0.136 [-0.407, +0.296] | resampling molecules |
-| B2 top-1 neighbour Tanimoto, any molecule: DreaMS | 0.485 | 21 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: MS2DeepScore | 0.397 | 21 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: modified cosine | 0.503 | 21 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: binned spectrum cosine | 0.456 | 21 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: random | 0.151 | chance level |
-| B2 top-1 neighbour Tanimoto, any molecule: best possible | 0.553 | upper limit |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): DreaMS | 0.265 | 21 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): MS2DeepScore | 0.094 | 21 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): modified cosine | 0.363 | 21 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): binned spectrum cosine | 0.144 | 21 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): random | 0.118 | chance level |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): best possible | 0.418 | upper limit |
-| B2 analog search, DreaMS minus modified cosine (95% CI) | -0.098 [-0.174, -0.001] | resampling query molecules |
-| B2 analog search, DreaMS minus MS2DeepScore (95% CI) | +0.171 [-0.009, +0.367] | resampling query molecules |
+| annotation check: library hits with a SMILES | 55 | spectra left |
+| annotation check: SMILES read by RDKit | 21 | spectra left |
+| annotation check: exact-mass hits (|query - library precursor| <= 0.05 Da) | 8 | spectra left |
+| annotation check: MQScore >= 0.7 and >= 6 shared peaks | 2 | spectra left |
+| annotation check: InChI agrees with SMILES (when an InChI is given) | 2 | spectra left |
+| annotation check: [M+H]+ hits: library precursor agrees with the structure (<= 0.05 Da) | 2 | spectra left |
+| annotation check: independent compounds (one spectrum per molecule) | 2 | spectra left |
+| annotated spectra used | 2 | independent compounds that pass the checks |
+| note | too few annotated spectra for this test |  |
 
 ![exp_a_umap.png](runs/crusemann_salstrep/results/exp_a_umap.png)
 
@@ -359,34 +325,35 @@ Embeddings: 785 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 50
 
 | metric | value | note |
 |---|---|---|
-| annotated spectra used | 29 | GNPS library hit with a valid structure |
-| unique structures | 23 | first block of the InChIKey |
+| annotation check: library hits with a SMILES | 36 | spectra left |
+| annotation check: SMILES read by RDKit | 29 | spectra left |
+| annotation check: exact-mass hits (|query - library precursor| <= 0.05 Da) | 28 | spectra left |
+| annotation check: MQScore >= 0.7 and >= 6 shared peaks | 28 | spectra left |
+| annotation check: InChI agrees with SMILES (when an InChI is given) | 28 | spectra left |
+| annotation check: [M+H]+ hits: library precursor agrees with the structure (<= 0.05 Da) | 26 | spectra left |
+| annotation check: independent compounds (one spectrum per molecule) | 21 | spectra left |
+| annotated spectra used | 21 | independent compounds that pass the checks |
+| unique structures | 21 | first block of the InChIKey |
 | B used for conclusions | no | needs >= 100 unique structures |
 | fragment tolerance for modified cosine (Da) | 0.02 | taken from the GNPS job |
-| B1 Spearman (Tanimoto vs DreaMS) | 0.36 | 406 pairs |
-| B1 Spearman (Tanimoto vs MS2DeepScore) | 0.414 | 406 pairs |
-| B1 Spearman (Tanimoto vs modified cosine) | 0.378 | 406 pairs |
-| B1 Spearman (Tanimoto vs binned spectrum cosine) | 0.201 | 406 pairs |
-| B1 Spearman (MHFP vs DreaMS) | 0.462 | MHFP Jaccard |
-| B1 Spearman (MHFP vs MS2DeepScore) | 0.492 | MHFP Jaccard |
-| B1 Spearman (MHFP vs modified cosine) | 0.429 | MHFP Jaccard |
-| B1 Spearman (MHFP vs binned spectrum cosine) | 0.251 | MHFP Jaccard |
-| B1 Spearman with Tanimoto, DreaMS minus modified cosine (95% CI) | -0.018 [-0.232, +0.142] | resampling molecules |
-| B1 Spearman with Tanimoto, DreaMS minus MS2DeepScore (95% CI) | -0.054 [-0.249, +0.106] | resampling molecules |
-| B2 top-1 neighbour Tanimoto, any molecule: DreaMS | 0.583 | 29 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: MS2DeepScore | 0.612 | 29 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: modified cosine | 0.536 | 29 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: binned spectrum cosine | 0.584 | 29 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: random | 0.219 | chance level |
-| B2 top-1 neighbour Tanimoto, any molecule: best possible | 0.648 | upper limit |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): DreaMS | 0.484 | 29 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): MS2DeepScore | 0.461 | 29 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): modified cosine | 0.457 | 29 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): binned spectrum cosine | 0.476 | 29 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): random | 0.206 | chance level |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): best possible | 0.526 | upper limit |
-| B2 analog search, DreaMS minus modified cosine (95% CI) | +0.027 [-0.005, +0.086] | resampling query molecules |
-| B2 analog search, DreaMS minus MS2DeepScore (95% CI) | +0.023 [+0.000, +0.045] | resampling query molecules |
+| B1 Spearman (Tanimoto vs DreaMS) | 0.265 | 210 pairs |
+| B1 Spearman (Tanimoto vs MS2DeepScore) | 0.361 | 210 pairs |
+| B1 Spearman (Tanimoto vs modified cosine) | 0.208 | 210 pairs |
+| B1 Spearman (Tanimoto vs binned spectrum cosine) | 0.169 | 210 pairs |
+| B1 Spearman (MHFP vs DreaMS) | 0.441 | MHFP Jaccard |
+| B1 Spearman (MHFP vs MS2DeepScore) | 0.506 | MHFP Jaccard |
+| B1 Spearman (MHFP vs modified cosine) | 0.303 | MHFP Jaccard |
+| B1 Spearman (MHFP vs binned spectrum cosine) | 0.163 | MHFP Jaccard |
+| B1 Spearman with Tanimoto, DreaMS minus modified cosine (95% CI) | +0.057 [-0.159, +0.254] | resampling molecules |
+| B1 Spearman with Tanimoto, DreaMS minus MS2DeepScore (95% CI) | -0.096 [-0.328, +0.155] | resampling molecules |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): DreaMS | 0.475 | 21 query spectra |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): MS2DeepScore | 0.433 | 21 query spectra |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): modified cosine | 0.472 | 21 query spectra |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): binned spectrum cosine | 0.485 | 21 query spectra |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): random | 0.182 | chance level |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): best possible | 0.513 | upper limit |
+| B2 analog search, DreaMS minus modified cosine (95% CI) | +0.003 [-0.017, +0.022] | resampling query molecules |
+| B2 analog search, DreaMS minus MS2DeepScore (95% CI) | +0.042 [-0.009, +0.117] | resampling query molecules |
 
 ![exp_a_umap.png](runs/chevrette_insect/results/exp_a_umap.png)
 
@@ -453,34 +420,15 @@ Embeddings: 2,392 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 
 
 | metric | value | note |
 |---|---|---|
-| annotated spectra used | 32 | GNPS library hit with a valid structure |
-| unique structures | 27 | first block of the InChIKey |
-| B used for conclusions | no | needs >= 100 unique structures |
-| fragment tolerance for modified cosine (Da) | 0.01 | taken from the GNPS job |
-| B1 Spearman (Tanimoto vs DreaMS) | 0.071 | 496 pairs |
-| B1 Spearman (Tanimoto vs MS2DeepScore) | 0.185 | 496 pairs |
-| B1 Spearman (Tanimoto vs modified cosine) | 0.234 | 496 pairs |
-| B1 Spearman (Tanimoto vs binned spectrum cosine) | 0.19 | 496 pairs |
-| B1 Spearman (MHFP vs DreaMS) | 0.331 | MHFP Jaccard |
-| B1 Spearman (MHFP vs MS2DeepScore) | 0.331 | MHFP Jaccard |
-| B1 Spearman (MHFP vs modified cosine) | 0.424 | MHFP Jaccard |
-| B1 Spearman (MHFP vs binned spectrum cosine) | 0.275 | MHFP Jaccard |
-| B1 Spearman with Tanimoto, DreaMS minus modified cosine (95% CI) | -0.163 [-0.357, +0.022] | resampling molecules |
-| B1 Spearman with Tanimoto, DreaMS minus MS2DeepScore (95% CI) | -0.114 [-0.325, +0.090] | resampling molecules |
-| B2 top-1 neighbour Tanimoto, any molecule: DreaMS | 0.443 | 32 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: MS2DeepScore | 0.462 | 32 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: modified cosine | 0.444 | 32 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: binned spectrum cosine | 0.463 | 32 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: random | 0.138 | chance level |
-| B2 top-1 neighbour Tanimoto, any molecule: best possible | 0.657 | upper limit |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): DreaMS | 0.268 | 32 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): MS2DeepScore | 0.335 | 32 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): modified cosine | 0.305 | 32 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): binned spectrum cosine | 0.29 | 32 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): random | 0.127 | chance level |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): best possible | 0.522 | upper limit |
-| B2 analog search, DreaMS minus modified cosine (95% CI) | -0.037 [-0.122, +0.044] | resampling query molecules |
-| B2 analog search, DreaMS minus MS2DeepScore (95% CI) | -0.067 [-0.148, -0.004] | resampling query molecules |
+| annotation check: library hits with a SMILES | 54 | spectra left |
+| annotation check: SMILES read by RDKit | 32 | spectra left |
+| annotation check: exact-mass hits (|query - library precursor| <= 0.05 Da) | 32 | spectra left |
+| annotation check: MQScore >= 0.7 and >= 6 shared peaks | 17 | spectra left |
+| annotation check: InChI agrees with SMILES (when an InChI is given) | 17 | spectra left |
+| annotation check: [M+H]+ hits: library precursor agrees with the structure (<= 0.05 Da) | 16 | spectra left |
+| annotation check: independent compounds (one spectrum per molecule) | 16 | spectra left |
+| annotated spectra used | 16 | independent compounds that pass the checks |
+| note | too few annotated spectra for this test |  |
 
 ![exp_a_umap.png](runs/dorrestein_salbus/results/exp_a_umap.png)
 
@@ -548,34 +496,35 @@ Embeddings: 8,901 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 
 
 | metric | value | note |
 |---|---|---|
-| annotated spectra used | 420 | GNPS library hit with a valid structure |
-| unique structures | 324 | first block of the InChIKey |
+| annotation check: library hits with a SMILES | 442 | spectra left |
+| annotation check: SMILES read by RDKit | 420 | spectra left |
+| annotation check: exact-mass hits (|query - library precursor| <= 0.05 Da) | 419 | spectra left |
+| annotation check: MQScore >= 0.7 and >= 6 shared peaks | 214 | spectra left |
+| annotation check: InChI agrees with SMILES (when an InChI is given) | 214 | spectra left |
+| annotation check: [M+H]+ hits: library precursor agrees with the structure (<= 0.05 Da) | 211 | spectra left |
+| annotation check: independent compounds (one spectrum per molecule) | 176 | spectra left |
+| annotated spectra used | 176 | independent compounds that pass the checks |
+| unique structures | 176 | first block of the InChIKey |
 | B used for conclusions | yes | needs >= 100 unique structures |
 | fragment tolerance for modified cosine (Da) | 0.02 | taken from the GNPS job |
-| B1 Spearman (Tanimoto vs DreaMS) | 0.229 | 87,990 pairs |
-| B1 Spearman (Tanimoto vs MS2DeepScore) | 0.261 | 87,990 pairs |
-| B1 Spearman (Tanimoto vs modified cosine) | 0.259 | 87,990 pairs |
-| B1 Spearman (Tanimoto vs binned spectrum cosine) | 0.203 | 87,990 pairs |
-| B1 Spearman (MHFP vs DreaMS) | 0.273 | MHFP Jaccard |
-| B1 Spearman (MHFP vs MS2DeepScore) | 0.335 | MHFP Jaccard |
-| B1 Spearman (MHFP vs modified cosine) | 0.331 | MHFP Jaccard |
-| B1 Spearman (MHFP vs binned spectrum cosine) | 0.266 | MHFP Jaccard |
-| B1 Spearman with Tanimoto, DreaMS minus modified cosine (95% CI) | -0.030 [-0.077, +0.014] | resampling molecules |
-| B1 Spearman with Tanimoto, DreaMS minus MS2DeepScore (95% CI) | -0.033 [-0.084, +0.013] | resampling molecules |
-| B2 top-1 neighbour Tanimoto, any molecule: DreaMS | 0.542 | 420 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: MS2DeepScore | 0.521 | 420 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: modified cosine | 0.517 | 420 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: binned spectrum cosine | 0.506 | 420 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: random | 0.132 | chance level |
-| B2 top-1 neighbour Tanimoto, any molecule: best possible | 0.775 | upper limit |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): DreaMS | 0.399 | 420 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): MS2DeepScore | 0.386 | 420 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): modified cosine | 0.408 | 420 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): binned spectrum cosine | 0.375 | 420 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): random | 0.128 | chance level |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): best possible | 0.666 | upper limit |
-| B2 analog search, DreaMS minus modified cosine (95% CI) | -0.009 [-0.032, +0.017] | resampling query molecules |
-| B2 analog search, DreaMS minus MS2DeepScore (95% CI) | +0.013 [-0.010, +0.040] | resampling query molecules |
+| B1 Spearman (Tanimoto vs DreaMS) | 0.266 | 15,400 pairs |
+| B1 Spearman (Tanimoto vs MS2DeepScore) | 0.319 | 15,400 pairs |
+| B1 Spearman (Tanimoto vs modified cosine) | 0.292 | 15,400 pairs |
+| B1 Spearman (Tanimoto vs binned spectrum cosine) | 0.228 | 15,400 pairs |
+| B1 Spearman (MHFP vs DreaMS) | 0.307 | MHFP Jaccard |
+| B1 Spearman (MHFP vs MS2DeepScore) | 0.404 | MHFP Jaccard |
+| B1 Spearman (MHFP vs modified cosine) | 0.34 | MHFP Jaccard |
+| B1 Spearman (MHFP vs binned spectrum cosine) | 0.278 | MHFP Jaccard |
+| B1 Spearman with Tanimoto, DreaMS minus modified cosine (95% CI) | -0.026 [-0.086, +0.039] | resampling molecules |
+| B1 Spearman with Tanimoto, DreaMS minus MS2DeepScore (95% CI) | -0.053 [-0.144, +0.015] | resampling molecules |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): DreaMS | 0.508 | 176 query spectra |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): MS2DeepScore | 0.507 | 176 query spectra |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): modified cosine | 0.499 | 176 query spectra |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): binned spectrum cosine | 0.483 | 176 query spectra |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): random | 0.142 | chance level |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): best possible | 0.673 | upper limit |
+| B2 analog search, DreaMS minus modified cosine (95% CI) | +0.009 [-0.020, +0.038] | resampling query molecules |
+| B2 analog search, DreaMS minus MS2DeepScore (95% CI) | +0.001 [-0.026, +0.029] | resampling query molecules |
 
 ![exp_a_umap.png](runs/tahlan_streptomyces/results/exp_a_umap.png)
 

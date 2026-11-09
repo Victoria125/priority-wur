@@ -9,8 +9,9 @@ Run this script with the Python of the MS2DeepScore environment (.ms2ds_env).
 It is separate from the DreaMS environment because the two packages pin
 different versions of numpy, torch and matchms.
 
-If the embeddings already exist for exactly the same MGF file, nothing is
-computed again (use --force to recompute).
+Every method gets the same input: the 100 most intense peaks that DreaMS's
+embedding model keeps (common.top_peaks). If the embeddings already exist for
+exactly the same spectra, nothing is computed again (use --force to recompute).
 """
 import argparse
 import time
@@ -30,12 +31,18 @@ MODEL_PATH = C.EXPERIMENT_DIR / ".ms2deepscore" / "ms2deepscore_model.pt"
 
 
 def to_matchms(spec) -> Spectrum:
-    """Our spectrum dict -> matchms Spectrum. All our spectra are positive mode, charge +1."""
+    """Our spectrum dict -> matchms Spectrum, with the same 100 peaks DreaMS sees.
+    All our spectra are positive mode; the charge is the one GNPS gives (0 = unknown),
+    which MS2DeepScore does not use."""
+    spec = C.top_peaks(spec)
     order = np.argsort(spec["mz"])
+    metadata = {"precursor_mz": float(spec["precursor_mz"]), "ionmode": "positive"}
+    if spec.get("charge"):
+        metadata["charge"] = int(spec["charge"])
     s = Spectrum(
         mz=spec["mz"][order].astype(float),
         intensities=spec["intensity"][order].astype(float),
-        metadata={"precursor_mz": float(spec["precursor_mz"]), "ionmode": "positive", "charge": 1},
+        metadata=metadata,
     )
     return normalize_intensities(s)
 
@@ -50,11 +57,12 @@ def main():
     p = C.run_paths(args.run, args.variant)
     if not p.clean_mgf.exists():
         raise SystemExit(f"{args.run} has no spectra for the '{args.variant}' variant. Nothing to embed.")
-    mgf_md5 = C.md5sum(p.clean_mgf)
-    if not args.force and p.ms2ds_embeddings.exists() and p.ms2ds_info.exists():
-        if C.read_json(p.ms2ds_info).get("clean_mgf_md5") == mgf_md5:
-            print(f"{p.ms2ds_embeddings.name} is up to date for {args.run}. Nothing to do.")
-            return
+    fingerprint = C.spectra_fingerprint(p.clean_mgf)
+    info = C.read_json(p.ms2ds_info) if p.ms2ds_info.exists() else {}
+    if (not args.force and p.ms2ds_embeddings.exists() and info.get("spectra_fingerprint") == fingerprint
+            and info.get("input_peaks") == C.INPUT_PEAKS):
+        print(f"{p.ms2ds_embeddings.name} is up to date for {args.run}. Nothing to do.")
+        return
 
     if not MODEL_PATH.exists():
         print("Downloading the MS2DeepScore model (416 MB) from Zenodo...")
@@ -74,7 +82,9 @@ def main():
 
     np.save(p.ms2ds_embeddings, embeddings)
     C.write_json({
-        "clean_mgf_md5": mgf_md5,
+        "clean_mgf_md5": C.md5sum(p.clean_mgf),
+        "spectra_fingerprint": fingerprint,
+        "input_peaks": C.INPUT_PEAKS,
         "shape": list(embeddings.shape),
         "model": "MS2DeepScore pre-trained (Zenodo 17826815)",
         "ms2deepscore_version": metadata.version("ms2deepscore"),

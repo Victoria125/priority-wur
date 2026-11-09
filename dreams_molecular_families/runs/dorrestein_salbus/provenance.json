@@ -1,0 +1,21 @@
+{
+  "run": "dorrestein_salbus",
+  "PoDP dataset": "MSV000079519",
+  "documented sources": [
+    "MSV000079519"
+  ],
+  "spectra files": 7,
+  "library files": 33,
+  "other files": 0,
+  "sources": [
+    {
+      "source": "MSV000079519",
+      "spectra files": 7,
+      "names found in": "MSV000079519",
+      "share found": 1.0,
+      "names in PoDP dataset": 7
+    }
+  ],
+  "problems": [],
+  "ok": true
+}

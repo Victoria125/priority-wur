@@ -12,5 +12,6 @@
   "reused from variant": "all_kept",
   "reused (identical spectra)": 2743,
   "computed_on": "2026-11-09T21:35:02",
-  "machine": "Windows-10-10.0.26200-SP0"
+  "machine": "Windows-10-10.0.26200-SP0",
+  "spectra_fingerprint": "19a04cdb5fde7e475527d62a55343196"
 }

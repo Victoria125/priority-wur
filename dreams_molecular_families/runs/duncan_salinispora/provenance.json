@@ -1,0 +1,22 @@
+{
+  "run": "duncan_salinispora",
+  "PoDP dataset": "MSV000079284",
+  "documented sources": [
+    "MSV000079284",
+    "MSV000079484"
+  ],
+  "spectra files": 50,
+  "library files": 26,
+  "other files": 1,
+  "sources": [
+    {
+      "source": "MSV000079484",
+      "spectra files": 50,
+      "names found in": "MSV000079284",
+      "share found": 1.0,
+      "names in PoDP dataset": 50
+    }
+  ],
+  "problems": [],
+  "ok": true
+}

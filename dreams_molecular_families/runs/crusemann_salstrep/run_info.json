@@ -1,6 +1,6 @@
 {
   "run": "crusemann_salstrep",
-  "dataset": "Salinispora + Streptomyces, Crüsemann et al. 2017",
+  "dataset": "Salinispora (MSV000078836) + Streptomyces (MSV000078839), Crüsemann et al. 2017",
   "MassIVE dataset (PoDP)": "MSV000078836",
   "GNPS task": "9360fa514804487a9d39b7e7d7e6d514",
   "GNPS workflow": "METABOLOMICS-SNETS",
@@ -13,15 +13,17 @@
   "spectra with peaks": 6246,
   "GNPS network edges": 6750,
   "spectra (all_kept)": 3685,
+  "spectra with unknown charge in GNPS (all_kept)": 1296,
   "spectra in a GNPS family (size >= 2) (all_kept)": 2418,
   "GNPS families (size >= 2) (all_kept)": 299,
   "GNPS edges between these spectra (all_kept)": 4329,
   "library hits with a structure (SMILES) (all_kept)": 58,
-  "MGF md5 (all_kept)": "ec022e0c31db62424c676006ba9f65c4",
+  "MGF md5 (all_kept)": "8441a35562176395a487d85f5354ad0f",
   "spectra (protocol)": 3445,
+  "spectra with unknown charge in GNPS (protocol)": 1182,
   "spectra in a GNPS family (size >= 2) (protocol)": 2277,
   "GNPS families (size >= 2) (protocol)": 282,
   "GNPS edges between these spectra (protocol)": 3902,
   "library hits with a structure (SMILES) (protocol)": 55,
-  "MGF md5 (protocol)": "4c46058a805d9578feadf07218f9014c"
+  "MGF md5 (protocol)": "888287d83f3c32cf095e12e5f0c4c1eb"
 }

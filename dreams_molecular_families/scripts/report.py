@@ -23,8 +23,11 @@ KEY_METRICS = [
     ("A2 median DreaMS sim., random pairs", "exp_a", "A2 median DreaMS similarity: random pairs"),
     ("A3 largest DreaMS family (threshold 0.7)", "exp_a", "A3 largest DreaMS family"),
     ("A3 AMI, spectra in GNPS families (0.7)", "exp_a", "A3 agreement (AMI), only spectra in GNPS families"),
-    ("B annotated spectra used", "exp_b", "annotated spectra used"),
-    ("B unique structures", "exp_b", "unique structures"),
+    ("B library hits with a SMILES", "exp_b", "annotation check: library hits with a SMILES"),
+    ("B exact-mass hits (no analogs)", "exp_b",
+     "annotation check: exact-mass hits (|query - library precursor| <= 0.05 Da)"),
+    ("B independent compounds after all checks", "exp_b",
+     "annotation check: independent compounds (one spectrum per molecule)"),
     ("B used for conclusions (>= 100 structures)", "exp_b", "B used for conclusions"),
     ("B1 Spearman with Tanimoto: DreaMS", "exp_b", "B1 Spearman (Tanimoto vs DreaMS)"),
     ("B1 Spearman with Tanimoto: MS2DeepScore", "exp_b", "B1 Spearman (Tanimoto vs MS2DeepScore)"),
@@ -46,9 +49,11 @@ KEY_METRICS = [
 
 DATASET_ROWS = [
     "dataset", "MassIVE dataset (PoDP)", "GNPS task", "GNPS workflow",
+    "spectra sources (provenance check)",
     "fragment tolerance used by GNPS (Da)", "min cosine for GNPS edges", "spectra with peaks",
     "spectra (protocol)", "share (protocol)", "spectra (all_kept)", "share (all_kept)",
     "GNPS families (size >= 2) (protocol)", "GNPS edges between these spectra (protocol)",
+    "spectra with unknown charge in GNPS (protocol)",
     "library hits with a structure (SMILES) (protocol)",
 ]
 
@@ -70,9 +75,13 @@ def load_run(run):
     for variant in C.VARIANTS:
         if info.get("spectra with peaks"):
             info[f"share ({variant})"] = f"{info.get(f'spectra ({variant})', 0) / info['spectra with peaks']:.0%}"
-    for name in ["exp_a_network_sweep", "00_filter_report"]:
-        path = p.results / f"{name}.parquet"
-        out[name] = pd.read_parquet(path) if path.exists() else None
+    if p.provenance.exists():
+        prov = C.read_json(p.provenance)
+        info["spectra sources (provenance check)"] = ("ok: " if prov["ok"] else "FAIL: ") + "; ".join(
+            f"{s['source']} ({s['spectra files']} files)" for s in prov["sources"])
+    out["00_filter_report"] = pd.read_parquet(p.input_report) if p.input_report.exists() else None
+    path = p.results / "exp_a_network_sweep.parquet"
+    out["exp_a_network_sweep"] = pd.read_parquet(path) if path.exists() else None
     for variant in C.VARIANTS:
         pv = C.run_paths(run, variant)
         for name in ["exp_a_summary", "exp_b_summary"]:
@@ -125,7 +134,9 @@ def main():
         "Only spectra that pass DreaMS's own format A check, given to every method exactly as GNPS "
         "gives them (`protocol` variant). Recovery@5 is the share of possible GNPS family partners "
         "among the 5 nearest neighbours (1.0 = all). Tanimoto and MHFP compare the structures of "
-        "library-annotated spectra. *Analog search* skips spectra of the same molecule. Differences "
+        "library-annotated compounds that pass the checks of `annotations.py` (no analog-search hits, "
+        "one spectrum per molecule); every method gets the same 100 most intense peaks. "
+        "*Analog search* takes the most similar spectrum of another molecule. Differences "
         "are shown with a 95% bootstrap interval; an interval that contains 0 means no detectable "
         "difference. Empty column: no spectra pass DreaMS's own check.",
         "",

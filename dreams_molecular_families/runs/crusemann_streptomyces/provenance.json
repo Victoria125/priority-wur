@@ -1,0 +1,21 @@
+{
+  "run": "crusemann_streptomyces",
+  "PoDP dataset": "MSV000078839",
+  "documented sources": [
+    "MSV000078839"
+  ],
+  "spectra files": 360,
+  "library files": 33,
+  "other files": 0,
+  "sources": [
+    {
+      "source": "MSV000078839",
+      "spectra files": 360,
+      "names found in": "MSV000078839",
+      "share found": 0.997,
+      "names in PoDP dataset": 359
+    }
+  ],
+  "problems": [],
+  "ok": true
+}

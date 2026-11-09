@@ -1,7 +1,11 @@
 """Step 4 (Experiment B). Does DreaMS similarity follow chemical structure?
 
-Only spectra with a GNPS library hit that has a structure (SMILES) are used.
-For every pair of these spectra we compare:
+Only library annotations that pass the chemical checks of annotations.py
+are used (exact-mass hits, good matches, valid SMILES, consistent InChI and
+[M+H]+ mass), one spectrum per molecule, so that every pair is a pair of
+independent compounds. Every spectral method gets the same input: the 100
+most intense peaks that DreaMS uses (common.top_peaks).
+For every pair of compounds we compare:
   - structural similarity of the two molecules: Tanimoto of Morgan
     fingerprints (main) and MHFP (Daniel Probst's MinHash fingerprint)
   - DreaMS similarity (cosine of the embeddings)
@@ -9,8 +13,7 @@ For every pair of these spectra we compare:
   - modified cosine (the spectral score GNPS uses to build its network)
   - binned spectrum cosine (a simple spectral baseline)
 
-Differences between methods get a 95% interval from resampling molecules,
-because spectra of the same molecule are not independent.
+Differences between methods get a 95% interval from resampling molecules.
 """
 import argparse
 import warnings
@@ -22,30 +25,18 @@ import numpy as np
 from matchms import Spectrum
 from matchms.similarity import ModifiedCosine
 from mhfp.encoder import MHFPEncoder
-from rdkit import Chem, DataStructs, RDLogger
+from rdkit import DataStructs
 from rdkit.Chem import rdFingerprintGenerator
-from rdkit.Chem.MolStandardize import rdMolStandardize
 from scipy.stats import spearmanr
 
 import common as C
+from annotations import molecule, validated_annotations  # noqa: F401 (molecule is used by other scripts)
 
-RDLogger.DisableLog("rdApp.*")
 warnings.filterwarnings("ignore")
 
-# A dataset counts for conclusions only with at least this many different
-# molecules. Rule set on 2026-11-09, after the first results: Duncan had 77
-# in-domain structures and no method followed them (Spearman ~0.05).
+# A dataset counts for conclusions only with at least this many independent
+# compounds. Rule set on 2026-11-09, after the first results.
 MIN_UNIQUE_STRUCTURES = 100
-
-
-def molecule(smiles):
-    """SMILES -> RDKit molecule without salts / counter ions (None if invalid)."""
-    if not isinstance(smiles, str) or not smiles.strip() or smiles.strip().upper() in ("N/A", "NA"):
-        return None
-    mol = Chem.MolFromSmiles(smiles.strip())
-    if mol is None:
-        return None
-    return rdMolStandardize.LargestFragmentChooser().choose(mol)
 
 
 def fragment_tolerance(p, default=0.02):
@@ -105,8 +96,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--run", required=True, help="name of the run (see common.RUNS)")
     parser.add_argument("--variant", default="protocol", choices=list(C.VARIANTS))
-    parser.add_argument("--min-library-score", type=float, default=0.0,
-                        help="only use library hits with at least this GNPS score (MQScore)")
     args = parser.parse_args()
 
     p = C.run_paths(args.run, args.variant)
@@ -115,10 +104,10 @@ def main():
     ms2ds = C.load_ms2deepscore(p)
     spectra = C.read_clean_spectra(p, meta)  # same order as meta
 
-    mols = [molecule(s) for s in meta["smiles"]]
-    score_ok = meta["library_score"].fillna(-1).to_numpy() >= args.min_library_score
-    idx = [i for i, m in enumerate(mols) if m is not None and score_ok[i]]
-    rows = [("annotated spectra used", len(idx), "GNPS library hit with a valid structure")]
+    selected, qc = validated_annotations(meta)
+    idx = selected["row"].tolist()
+    rows = [(f"annotation check: {step}", n, "spectra left") for step, n in qc]
+    rows.append(("annotated spectra used", len(idx), "independent compounds that pass the checks"))
     if len(idx) < 20:
         C.save_summary(rows + [("note", "too few annotated spectra for this test", "")],
                        p.results / "exp_b_summary.parquet")
@@ -127,10 +116,11 @@ def main():
 
     # Structural similarity
     generator = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=2048)
-    fingerprints = [generator.GetFingerprint(mols[i]) for i in idx]
-    keys = np.array([Chem.MolToInchiKey(mols[i])[:14] for i in idx])  # same 2D structure -> same key
+    mols = selected["mol"].tolist()
+    fingerprints = [generator.GetFingerprint(m) for m in mols]
+    keys = selected["key"].to_numpy()  # one spectrum per molecule
     tanimoto = np.array([DataStructs.BulkTanimotoSimilarity(fp, fingerprints) for fp in fingerprints])
-    mhfp = mhfp_similarity([mols[i] for i in idx])
+    mhfp = mhfp_similarity(mols)
     n = len(idx)
     n_structures = int(len(set(keys)))
     enough = n_structures >= MIN_UNIQUE_STRUCTURES
@@ -146,11 +136,11 @@ def main():
     if ms2ds is not None:
         m = ms2ds[idx]
         scores["MS2DeepScore"] = m @ m.T
-    binned_vectors = C.binned_vectors([spectra[i] for i in idx])
+    inputs = [C.top_peaks(spectra[i]) for i in idx]  # the same 100 peaks DreaMS sees
+    binned_vectors = C.binned_vectors(inputs)
     tolerance = fragment_tolerance(p)
     specs = []
-    for i in idx:
-        s = spectra[i]
+    for s in inputs:
         specs.append(Spectrum(
             mz=s["mz"].astype(float),
             intensities=(s["intensity"] / s["intensity"].max()).astype(float),
@@ -174,10 +164,10 @@ def main():
                      C.ci_text(*spearman_difference_ci(tanimoto, scores["DreaMS"], scores[other], keys)),
                      "resampling molecules"))
 
-    # 2. Top-1 search: is the most similar spectrum also a similar molecule?
-    self_mask = np.eye(n, dtype=bool)
-    same_structure = keys[:, None] == keys[None, :]
-    for label, blocked in [("any molecule", self_mask), ("other molecules only (analog search)", self_mask | same_structure)]:
+    # 2. Analog search: is the most similar spectrum (always another molecule,
+    # since there is one spectrum per molecule) also a similar molecule?
+    blocked_pairs = np.eye(n, dtype=bool) | (keys[:, None] == keys[None, :])
+    for label, blocked in [("other molecules only (analog search)", blocked_pairs)]:
         t_blocked = tanimoto.astype(float).copy()
         t_blocked[blocked] = np.nan
         random_level = float(np.nanmean(t_blocked))
@@ -189,13 +179,12 @@ def main():
             (f"B2 top-1 neighbour Tanimoto, {label}: random", round(random_level, 3), "chance level"),
             (f"B2 top-1 neighbour Tanimoto, {label}: best possible", round(best_level, 3), "upper limit"),
         ]
-        if label.startswith("other"):
-            dreams_values, ok = top1_values(scores["DreaMS"], tanimoto, blocked)
-            for other in [name for name in ("modified cosine", "MS2DeepScore") if name in scores]:
-                other_values, _ = top1_values(scores[other], tanimoto, blocked)
-                rows.append((f"B2 analog search, DreaMS minus {other} (95% CI)",
-                             C.ci_text(*C.bootstrap_mean_ci((dreams_values - other_values)[ok], keys[ok])),
-                             "resampling query molecules"))
+        dreams_values, ok = top1_values(scores["DreaMS"], tanimoto, blocked)
+        for other in [name for name in ("modified cosine", "MS2DeepScore") if name in scores]:
+            other_values, _ = top1_values(scores[other], tanimoto, blocked)
+            rows.append((f"B2 analog search, DreaMS minus {other} (95% CI)",
+                         C.ci_text(*C.bootstrap_mean_ci((dreams_values - other_values)[ok], keys[ok])),
+                         "resampling query molecules"))
 
     # Picture
     fig, axes = plt.subplots(1, len(scores), figsize=(4.7 * len(scores), 4.2), sharey=True)

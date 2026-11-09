@@ -1,0 +1,21 @@
+{
+  "run": "tahlan_streptomyces",
+  "PoDP dataset": "MSV000083835",
+  "documented sources": [
+    "MSV000083835"
+  ],
+  "spectra files": 95,
+  "library files": 34,
+  "other files": 1,
+  "sources": [
+    {
+      "source": "MSV000083835",
+      "spectra files": 95,
+      "names found in": "MSV000083835",
+      "share found": 1.0,
+      "names in PoDP dataset": 92
+    }
+  ],
+  "problems": [],
+  "ok": true
+}

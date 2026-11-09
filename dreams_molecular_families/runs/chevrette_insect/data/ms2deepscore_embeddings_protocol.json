@@ -1,11 +1,13 @@
 {
-  "clean_mgf_md5": "833423adfac9b7cb7a1d62899c411a72",
+  "clean_mgf_md5": "53d9421adc346e90c015d66145d3ebff",
+  "spectra_fingerprint": "9677d9b5c728166f6f32243a303df33c",
+  "input_peaks": 100,
   "shape": [
     785,
     500
   ],
   "model": "MS2DeepScore pre-trained (Zenodo 17826815)",
   "ms2deepscore_version": "2.11.0",
-  "seconds": 4,
-  "computed_on": "2026-11-09T17:08:32"
+  "seconds": 2,
+  "computed_on": "2026-11-09T23:19:59"
 }
