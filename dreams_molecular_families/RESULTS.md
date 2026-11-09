@@ -13,67 +13,93 @@
 | fragment tolerance used by GNPS (Da) | 0.3 | 0.5 | 0.5 | 0.02 | 0.01 | 0.02 |
 | min cosine for GNPS edges | 0.5 | 0.5 | 0.7 | 0.6 | 0.6 | 0.7 |
 | spectra with peaks | 25935 | 6246 | 2834 | 1214 | 4707 | 12719 |
-| spectra kept | 2903 | 3685 | 1973 | 825 | 2053 | 8903 |
-| share kept | 11% | 59% | 70% | 68% | 44% | 70% |
-| spectra kept that pass DreaMS's own check | 261 | 3443 | 0 | 761 | 2033 | 8894 |
-| spectra in a GNPS family (size >= 2) | 139 | 2418 | 887 | 600 | 1398 | 5319 |
-| GNPS families (size >= 2) | 20 | 299 | 148 | 100 | 193 | 1029 |
-| GNPS edges between kept spectra | 289 | 4329 | 1695 | 1075 | 2670 | 8067 |
-| library hits with a structure (SMILES) | 403 | 58 | 38 | 41 | 54 | 442 |
+| spectra (protocol) | 528 | 3445 | 0 | 785 | 2392 | 8901 |
+| share (protocol) | 2% | 55% | 0% | 65% | 51% | 70% |
+| spectra (all_kept) | 2903 | 3685 | 1973 | 825 | 2053 | 8903 |
+| share (all_kept) | 11% | 59% | 70% | 68% | 44% | 70% |
+| GNPS families (size >= 2) (protocol) | 13 | 282 |  | 97 | 193 | 1027 |
+| GNPS edges between these spectra (protocol) | 88 | 3902 |  | 903 | 2655 | 8047 |
+| library hits with a structure (SMILES) (protocol) | 135 | 55 |  | 36 | 54 | 442 |
 
-## Main numbers
+## Main numbers (DreaMS protocol)
 
-Recovery@5 is the share of possible GNPS family partners among the 5 nearest neighbours (1.0 = all). Tanimoto compares the structures of library-annotated spectra. *Analog search* skips spectra of the same molecule.
+Only spectra that pass DreaMS's own format A check, given to every method exactly as GNPS gives them (`protocol` variant). Recovery@5 is the share of possible GNPS family partners among the 5 nearest neighbours (1.0 = all). Tanimoto and MHFP compare the structures of library-annotated spectra. *Analog search* skips spectra of the same molecule. Differences are shown with a 95% bootstrap interval; an interval that contains 0 means no detectable difference. Empty column: no spectra pass DreaMS's own check.
+
+|  | duncan_salinispora | crusemann_salstrep | crusemann_streptomyces | chevrette_insect | dorrestein_salbus | tahlan_streptomyces |
+|---|---|---|---|---|---|---|
+| A1 family recovery@5: DreaMS | 0.757 | 0.654 |  | 0.815 | 0.761 | 0.618 |
+| A1 family recovery@5: MS2DeepScore | 0.66 | 0.707 |  | 0.762 | 0.757 | 0.597 |
+| A1 family recovery@5: binned cosine | 0.881 | 0.775 |  | 0.77 | 0.779 | 0.654 |
+| A1 family recovery@5: precursor m/z | 0.03 | 0.347 |  | 0.202 | 0.147 | 0.043 |
+| A1 family recovery@5: random | 0.013 | 0.018 |  | 0.038 | 0.014 | 0.002 |
+| A1 DreaMS minus binned cosine (95% CI) | -0.124 [-0.264, -0.011] | -0.121 [-0.157, -0.089] |  | +0.045 [-0.007, +0.111] | -0.018 [-0.061, +0.033] | -0.036 [-0.060, -0.014] |
+| A1 DreaMS minus MS2DeepScore (95% CI) | +0.097 [-0.092, +0.322] | -0.053 [-0.083, -0.021] |  | +0.053 [+0.011, +0.112] | +0.004 [-0.022, +0.030] | +0.021 [+0.002, +0.038] |
+| A2 median DreaMS sim., GNPS edges | 0.762 | 0.679 |  | 0.799 | 0.749 | 0.724 |
+| A2 median DreaMS sim., random pairs | 0.345 | 0.204 |  | 0.202 | 0.186 | 0.148 |
+| A3 largest DreaMS family (threshold 0.7) | 96 | 461 |  | 188 | 500 | 1,201 |
+| A3 AMI, spectra in GNPS families (0.7) | 0.806 | 0.615 |  | 0.655 | 0.571 | 0.502 |
+| B annotated spectra used | 130 | 21 |  | 29 | 32 | 420 |
+| B unique structures | 112 | 16 |  | 23 | 27 | 324 |
+| B used for conclusions (>= 100 structures) | yes | no |  | no | no | yes |
+| B1 Spearman with Tanimoto: DreaMS | 0.071 | 0.024 |  | 0.36 | 0.071 | 0.229 |
+| B1 Spearman with Tanimoto: MS2DeepScore | 0.064 | 0.161 |  | 0.414 | 0.185 | 0.261 |
+| B1 Spearman with Tanimoto: modified cosine | 0.089 | 0.097 |  | 0.378 | 0.234 | 0.259 |
+| B1 Spearman with Tanimoto: binned cosine | 0.071 | 0.05 |  | 0.201 | 0.19 | 0.203 |
+| B1 DreaMS minus modified cosine (95% CI) | -0.018 [-0.090, +0.052] | -0.073 [-0.455, +0.328] |  | -0.018 [-0.232, +0.142] | -0.163 [-0.357, +0.022] | -0.030 [-0.077, +0.014] |
+| B1 DreaMS minus MS2DeepScore (95% CI) | +0.007 [-0.095, +0.117] | -0.136 [-0.407, +0.296] |  | -0.054 [-0.249, +0.106] | -0.114 [-0.325, +0.090] | -0.033 [-0.084, +0.013] |
+| B1 Spearman with MHFP: DreaMS | 0.139 | 0.005 |  | 0.462 | 0.331 | 0.273 |
+| B1 Spearman with MHFP: MS2DeepScore | 0.105 | 0.306 |  | 0.492 | 0.331 | 0.335 |
+| B1 Spearman with MHFP: modified cosine | 0.093 | 0.173 |  | 0.429 | 0.424 | 0.331 |
+| B2 analog search top-1 Tanimoto: DreaMS | 0.129 | 0.265 |  | 0.484 | 0.268 | 0.399 |
+| B2 analog search top-1 Tanimoto: MS2DeepScore | 0.135 | 0.094 |  | 0.461 | 0.335 | 0.386 |
+| B2 analog search top-1 Tanimoto: modified cosine | 0.146 | 0.363 |  | 0.457 | 0.305 | 0.408 |
+| B2 analog search top-1 Tanimoto: binned cosine | 0.131 | 0.144 |  | 0.476 | 0.29 | 0.375 |
+| B2 analog search top-1 Tanimoto: random | 0.113 | 0.118 |  | 0.206 | 0.127 | 0.128 |
+| B2 DreaMS minus modified cosine (95% CI) | -0.017 [-0.040, +0.008] | -0.098 [-0.174, -0.001] |  | +0.027 [-0.005, +0.086] | -0.037 [-0.122, +0.044] | -0.009 [-0.032, +0.017] |
+| B2 DreaMS minus MS2DeepScore (95% CI) | -0.007 [-0.026, +0.008] | +0.171 [-0.009, +0.367] |  | +0.023 [+0.000, +0.045] | -0.067 [-0.148, -0.004] | +0.013 [-0.010, +0.040] |
+
+## Sensitivity analysis: our cleaning (all_kept)
+
+Our cleaning removes the peaks above the precursor before it applies the format A rules, so it also keeps spectra that DreaMS's own check rejects (old ion trap data in the Duncan job, noise above m/z 1000 in the Crüsemann *Streptomyces* job). Shown only to compare.
 
 |  | duncan_salinispora | crusemann_salstrep | crusemann_streptomyces | chevrette_insect | dorrestein_salbus | tahlan_streptomyces |
 |---|---|---|---|---|---|---|
 | A1 family recovery@5: DreaMS | 0.59 | 0.656 | 0.72 | 0.824 | 0.762 | 0.618 |
+| A1 family recovery@5: MS2DeepScore | 0.537 | 0.707 | 0.681 | 0.772 | 0.759 | 0.598 |
 | A1 family recovery@5: binned cosine | 0.602 | 0.776 | 0.693 | 0.78 | 0.786 | 0.655 |
 | A1 family recovery@5: precursor m/z | 0.121 | 0.343 | 0.232 | 0.21 | 0.148 | 0.04 |
 | A1 family recovery@5: random | 0.007 | 0.017 | 0.01 | 0.036 | 0.016 | 0.002 |
+| A1 DreaMS minus binned cosine (95% CI) | -0.012 [-0.170, +0.121] | -0.120 [-0.156, -0.087] | +0.027 [-0.034, +0.101] | +0.044 [-0.006, +0.109] | -0.023 [-0.068, +0.028] | -0.036 [-0.060, -0.012] |
+| A1 DreaMS minus MS2DeepScore (95% CI) | +0.053 [-0.080, +0.187] | -0.051 [-0.079, -0.020] | +0.039 [-0.007, +0.095] | +0.052 [+0.013, +0.107] | +0.003 [-0.024, +0.030] | +0.020 [+0.002, +0.039] |
 | A2 median DreaMS sim., GNPS edges | 0.738 | 0.681 | 0.717 | 0.802 | 0.751 | 0.724 |
 | A2 median DreaMS sim., random pairs | 0.426 | 0.206 | 0.193 | 0.197 | 0.174 | 0.149 |
 | A3 largest DreaMS family (threshold 0.7) | 2,583 | 588 | 78 | 190 | 512 | 1,192 |
 | A3 AMI, spectra in GNPS families (0.7) | 0.539 | 0.599 | 0.703 | 0.712 | 0.57 | 0.504 |
 | B annotated spectra used | 388 | 21 | 23 | 29 | 32 | 420 |
 | B unique structures | 173 | 16 | 18 | 23 | 27 | 324 |
+| B used for conclusions (>= 100 structures) | yes | no | no | no | no | yes |
 | B1 Spearman with Tanimoto: DreaMS | 0.197 | 0.023 | 0.144 | 0.36 | 0.064 | 0.23 |
+| B1 Spearman with Tanimoto: MS2DeepScore | 0.206 | 0.161 | 0.238 | 0.414 | 0.185 | 0.262 |
 | B1 Spearman with Tanimoto: modified cosine | 0.255 | 0.097 | 0.121 | 0.378 | 0.234 | 0.259 |
 | B1 Spearman with Tanimoto: binned cosine | 0.253 | 0.05 | 0.154 | 0.201 | 0.191 | 0.203 |
+| B1 DreaMS minus modified cosine (95% CI) | -0.058 [-0.122, +0.028] | -0.074 [-0.456, +0.337] | +0.023 [-0.241, +0.287] | -0.018 [-0.232, +0.142] | -0.170 [-0.362, +0.012] | -0.029 [-0.075, +0.015] |
+| B1 DreaMS minus MS2DeepScore (95% CI) | -0.009 [-0.086, +0.060] | -0.139 [-0.409, +0.297] | -0.094 [-0.379, +0.172] | -0.054 [-0.249, +0.106] | -0.120 [-0.331, +0.080] | -0.032 [-0.084, +0.014] |
+| B1 Spearman with MHFP: DreaMS | 0.216 | 0.004 | 0.307 | 0.462 | 0.331 | 0.274 |
+| B1 Spearman with MHFP: MS2DeepScore | 0.197 | 0.311 | 0.629 | 0.492 | 0.331 | 0.335 |
+| B1 Spearman with MHFP: modified cosine | 0.254 | 0.173 | 0.272 | 0.429 | 0.424 | 0.331 |
 | B2 analog search top-1 Tanimoto: DreaMS | 0.2 | 0.265 | 0.313 | 0.484 | 0.268 | 0.4 |
+| B2 analog search top-1 Tanimoto: MS2DeepScore | 0.195 | 0.094 | 0.276 | 0.461 | 0.335 | 0.386 |
 | B2 analog search top-1 Tanimoto: modified cosine | 0.205 | 0.363 | 0.398 | 0.457 | 0.305 | 0.408 |
 | B2 analog search top-1 Tanimoto: binned cosine | 0.197 | 0.144 | 0.315 | 0.476 | 0.29 | 0.375 |
 | B2 analog search top-1 Tanimoto: random | 0.131 | 0.118 | 0.131 | 0.206 | 0.127 | 0.128 |
-
-## Main numbers, only spectra that DreaMS's own rules accept
-
-Our cleaning removes the peaks above the precursor before checking the DreaMS format A rules, so it keeps some spectra that DreaMS's own check (`DataFormatA().val_spec` on the spectrum as GNPS gives it) would reject. Here the experiments use only the spectra that pass DreaMS's own check (`--in-domain-only`). Empty: too few spectra left.
-
-|  | duncan_salinispora | crusemann_salstrep | crusemann_streptomyces | chevrette_insect | dorrestein_salbus | tahlan_streptomyces |
-|---|---|---|---|---|---|---|
-| A1 family recovery@5: DreaMS | 0.713 | 0.654 |  | 0.817 | 0.762 | 0.618 |
-| A1 family recovery@5: binned cosine | 0.862 | 0.775 |  | 0.767 | 0.784 | 0.654 |
-| A1 family recovery@5: precursor m/z | 0.034 | 0.346 |  | 0.219 | 0.15 | 0.042 |
-| A1 family recovery@5: random | 0.027 | 0.018 |  | 0.039 | 0.016 | 0.002 |
-| A2 median DreaMS sim., GNPS edges | 0.701 | 0.68 |  | 0.802 | 0.75 | 0.724 |
-| A2 median DreaMS sim., random pairs | 0.256 | 0.207 |  | 0.2 | 0.177 | 0.151 |
-| A3 largest DreaMS family (threshold 0.7) | 20 | 580 |  | 188 | 500 | 1,192 |
-| A3 AMI, spectra in GNPS families (0.7) | 0.733 | 0.593 |  | 0.7 | 0.568 | 0.503 |
-| B annotated spectra used | 89 | 21 |  | 29 | 32 | 420 |
-| B unique structures | 77 | 16 |  | 23 | 27 | 324 |
-| B1 Spearman with Tanimoto: DreaMS | 0.051 | 0.023 |  | 0.36 | 0.064 | 0.23 |
-| B1 Spearman with Tanimoto: modified cosine | 0.05 | 0.097 |  | 0.378 | 0.234 | 0.259 |
-| B1 Spearman with Tanimoto: binned cosine | 0.057 | 0.05 |  | 0.201 | 0.191 | 0.203 |
-| B2 analog search top-1 Tanimoto: DreaMS | 0.133 | 0.265 |  | 0.484 | 0.268 | 0.4 |
-| B2 analog search top-1 Tanimoto: modified cosine | 0.135 | 0.363 |  | 0.457 | 0.305 | 0.408 |
-| B2 analog search top-1 Tanimoto: binned cosine | 0.125 | 0.144 |  | 0.476 | 0.29 | 0.375 |
-| B2 analog search top-1 Tanimoto: random | 0.117 | 0.118 |  | 0.206 | 0.127 | 0.128 |
+| B2 DreaMS minus modified cosine (95% CI) | -0.006 [-0.021, +0.010] | -0.098 [-0.174, -0.001] | -0.085 [-0.199, +0.005] | +0.027 [-0.005, +0.086] | -0.037 [-0.122, +0.044] | -0.008 [-0.031, +0.018] |
+| B2 DreaMS minus MS2DeepScore (95% CI) | +0.005 [-0.012, +0.019] | +0.171 [-0.009, +0.367] | +0.037 [-0.024, +0.100] | +0.023 [+0.000, +0.045] | -0.067 [-0.148, -0.004] | +0.014 [-0.010, +0.041] |
 
 ## duncan_salinispora: Salinispora, Duncan et al. 2015
 
-Embeddings: 2,903 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 1171 s (2026-11-02).
+Embeddings: 528 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 491 s (2026-11-09).
 
-**Cleaning (DreaMS format A)**
+**Input spectra**
 
 | step | spectra |
 |---|---|
@@ -83,64 +109,80 @@ Embeddings: 2,903 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 
 | removed: fewer than 3 peaks above 10% intensity | 2404 |
 | removed: charge is not +1 | 1074 |
 | removed: precursor m/z above 1000 | 111 |
-| kept for DreaMS | 2903 |
+| kept by our cleaning (all_kept) | 2903 |
+| pass DreaMS's own check, unchanged (protocol) | 528 |
 
 **Experiment A**
 
 | metric | value | note |
 |---|---|---|
-| spectra used | 2,903 | after the DreaMS quality rules |
-| spectra in GNPS families with >= 3 members | 125 | query spectra for A1 |
-| A1 family recovery@5: DreaMS | 0.59 | 1.0 = all family partners in the top k |
-| A1 family recovery@5: binned spectrum cosine | 0.602 | baseline, 1 Da bins |
-| A1 family recovery@5: precursor m/z only | 0.121 | baseline |
-| A1 family recovery@5: random | 0.007 | chance level |
-| A2 median DreaMS similarity: GNPS edges | 0.738 | 289 edges |
-| A2 median DreaMS similarity: random pairs | 0.426 | 4999 pairs |
-| A2 Spearman (GNPS cosine vs DreaMS similarity) on GNPS edges | 0.263 |  |
+| spectra used | 528 | variant: protocol |
+| spectra in GNPS families with >= 3 members | 51 | query spectra for A1 |
+| A1 family recovery@5: DreaMS | 0.757 | 1.0 = all family partners in the top k |
+| A1 family recovery@5: binned spectrum cosine | 0.881 | baseline, 1 Da bins |
+| A1 family recovery@5: precursor m/z only | 0.03 | baseline |
+| A1 family recovery@5: random | 0.013 | chance level |
+| A1 DreaMS minus binned cosine (95% CI) | -0.124 [-0.264, -0.011] | resampling GNPS families |
+| A1 family recovery@5: MS2DeepScore | 0.66 | pre-trained MS2DeepScore |
+| A1 DreaMS minus MS2DeepScore (95% CI) | +0.097 [-0.092, +0.322] | resampling GNPS families |
+| A2 median DreaMS similarity: GNPS edges | 0.762 | 88 edges |
+| A2 median DreaMS similarity: random pairs | 0.345 | 4994 pairs |
+| A2 Spearman (GNPS cosine vs DreaMS similarity) on GNPS edges | 0.496 |  |
 | A3 DreaMS network settings | k=3, similarity >= 0.7 | as in the DreaMS networking tutorial |
-| A3 DreaMS network edges | 6,399 |  |
-| A3 DreaMS families (size >= 2) | 25 |  |
-| A3 largest DreaMS family | 2,583 | spectra |
-| A3 agreement with GNPS families (AMI) | -0.001 | 1 = identical, 0 = chance |
-| A3 agreement with GNPS families (ARI) | -0 | 1 = identical, 0 = chance |
-| A3 agreement (AMI), only spectra in GNPS families | 0.539 | 139 spectra |
-| A3 DreaMS edges: same GNPS family | 123 | 1.9% |
-| A3 DreaMS edges: different GNPS families | 7 | 0.1% |
-| A3 DreaMS edges: involves a GNPS singleton | 6,269 | 98.0% |
-| A3 GNPS edges also found by the DreaMS network | 34.9% | of 289 GNPS edges |
+| A3 DreaMS network edges | 329 |  |
+| A3 DreaMS families (size >= 2) | 39 |  |
+| A3 largest DreaMS family | 96 | spectra |
+| A3 agreement with GNPS families (AMI) | 0.163 | 1 = identical, 0 = chance |
+| A3 agreement with GNPS families (ARI) | 0.043 | 1 = identical, 0 = chance |
+| A3 agreement (AMI), only spectra in GNPS families | 0.806 | 57 spectra |
+| A3 DreaMS edges: same GNPS family | 60 | 18.2% |
+| A3 DreaMS edges: different GNPS families | 0 | 0.0% |
+| A3 DreaMS edges: involves a GNPS singleton | 269 | 81.8% |
+| A3 GNPS edges also found by the DreaMS network | 55.7% | of 88 GNPS edges |
 
 **Experiment A4: DreaMS network thresholds**
 
 | threshold | edges | families (size >= 2) | spectra in families | largest family | AMI, all spectra | AMI, spectra in GNPS families | GNPS edges recovered (%) |
 |---|---|---|---|---|---|---|---|
-| 0.6 | 6760 | 14 | 2805 | 2763 | -0.0 | 0.266 | 41.9 |
-| 0.7 | 6399 | 25 | 2681 | 2583 | -0.001 | 0.539 | 34.9 |
-| 0.8 | 5329 | 28 | 2353 | 2272 | -0.01 | 0.362 | 23.2 |
-| 0.85 | 3364 | 54 | 1761 | 1492 | -0.009 | 0.292 | 13.5 |
-| 0.9 | 544 | 113 | 559 | 65 | 0.02 | 0.086 | 3.8 |
-| 0.95 | 1 | 1 | 2 | 2 | -0.0 | -0.0 | 0.0 |
+| 0.6 | 940 | 8 | 458 | 437 | 0.011 | 0.317 | 61.4 |
+| 0.7 | 329 | 39 | 253 | 96 | 0.163 | 0.806 | 55.7 |
+| 0.8 | 61 | 13 | 55 | 18 | 0.378 | 0.518 | 30.7 |
+| 0.85 | 16 | 6 | 18 | 6 | 0.291 | 0.273 | 12.5 |
+| 0.9 | 2 | 1 | 3 | 3 | 0.068 | 0.061 | 1.1 |
+| 0.95 | 0 | 0 | 0 | 1 | 0.0 | -0.0 | 0.0 |
 
 **Experiment B**
 
 | metric | value | note |
 |---|---|---|
-| annotated spectra used | 388 | GNPS library hit with a valid structure |
-| unique structures | 173 | first block of the InChIKey |
+| annotated spectra used | 130 | GNPS library hit with a valid structure |
+| unique structures | 112 | first block of the InChIKey |
+| B used for conclusions | yes | needs >= 100 unique structures |
 | fragment tolerance for modified cosine (Da) | 0.3 | taken from the GNPS job |
-| B1 Spearman (Tanimoto vs DreaMS) | 0.197 | 75,078 pairs |
-| B1 Spearman (Tanimoto vs modified cosine) | 0.255 | 75,078 pairs |
-| B1 Spearman (Tanimoto vs binned spectrum cosine) | 0.253 | 75,078 pairs |
-| B2 top-1 neighbour Tanimoto, any molecule: DreaMS | 0.451 | 388 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: modified cosine | 0.423 | 388 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: binned spectrum cosine | 0.394 | 388 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: random | 0.157 | chance level |
-| B2 top-1 neighbour Tanimoto, any molecule: best possible | 0.801 | upper limit |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): DreaMS | 0.2 | 388 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): modified cosine | 0.205 | 388 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): binned spectrum cosine | 0.197 | 388 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): random | 0.131 | chance level |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): best possible | 0.459 | upper limit |
+| B1 Spearman (Tanimoto vs DreaMS) | 0.071 | 8,385 pairs |
+| B1 Spearman (Tanimoto vs MS2DeepScore) | 0.064 | 8,385 pairs |
+| B1 Spearman (Tanimoto vs modified cosine) | 0.089 | 8,385 pairs |
+| B1 Spearman (Tanimoto vs binned spectrum cosine) | 0.071 | 8,385 pairs |
+| B1 Spearman (MHFP vs DreaMS) | 0.139 | MHFP Jaccard |
+| B1 Spearman (MHFP vs MS2DeepScore) | 0.105 | MHFP Jaccard |
+| B1 Spearman (MHFP vs modified cosine) | 0.093 | MHFP Jaccard |
+| B1 Spearman (MHFP vs binned spectrum cosine) | 0.082 | MHFP Jaccard |
+| B1 Spearman with Tanimoto, DreaMS minus modified cosine (95% CI) | -0.018 [-0.090, +0.052] | resampling molecules |
+| B1 Spearman with Tanimoto, DreaMS minus MS2DeepScore (95% CI) | +0.007 [-0.095, +0.117] | resampling molecules |
+| B2 top-1 neighbour Tanimoto, any molecule: DreaMS | 0.198 | 130 query spectra |
+| B2 top-1 neighbour Tanimoto, any molecule: MS2DeepScore | 0.17 | 130 query spectra |
+| B2 top-1 neighbour Tanimoto, any molecule: modified cosine | 0.225 | 130 query spectra |
+| B2 top-1 neighbour Tanimoto, any molecule: binned spectrum cosine | 0.201 | 130 query spectra |
+| B2 top-1 neighbour Tanimoto, any molecule: random | 0.115 | chance level |
+| B2 top-1 neighbour Tanimoto, any molecule: best possible | 0.504 | upper limit |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): DreaMS | 0.129 | 130 query spectra |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): MS2DeepScore | 0.135 | 130 query spectra |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): modified cosine | 0.146 | 130 query spectra |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): binned spectrum cosine | 0.131 | 130 query spectra |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): random | 0.113 | chance level |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): best possible | 0.347 | upper limit |
+| B2 analog search, DreaMS minus modified cosine (95% CI) | -0.017 [-0.040, +0.008] | resampling query molecules |
+| B2 analog search, DreaMS minus MS2DeepScore (95% CI) | -0.007 [-0.026, +0.008] | resampling query molecules |
 
 ![exp_a_umap.png](runs/duncan_salinispora/results/exp_a_umap.png)
 
@@ -150,9 +192,9 @@ Embeddings: 2,903 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 
 
 ## crusemann_salstrep: Salinispora + Streptomyces, Crüsemann et al. 2017
 
-Embeddings: 3,685 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 1745 s (2026-11-02).
+Embeddings: 3,445 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 206 s (2026-11-09).
 
-**Cleaning (DreaMS format A)**
+**Input spectra**
 
 | step | spectra |
 |---|---|
@@ -162,43 +204,47 @@ Embeddings: 3,685 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 
 | removed: charge is not +1 | 532 |
 | removed: fewer than 3 peaks above 10% intensity | 395 |
 | removed: precursor m/z above 1000 | 92 |
-| kept for DreaMS | 3685 |
+| kept by our cleaning (all_kept) | 3685 |
+| pass DreaMS's own check, unchanged (protocol) | 3445 |
 
 **Experiment A**
 
 | metric | value | note |
 |---|---|---|
-| spectra used | 3,685 | after the DreaMS quality rules |
-| spectra in GNPS families with >= 3 members | 2,138 | query spectra for A1 |
-| A1 family recovery@5: DreaMS | 0.656 | 1.0 = all family partners in the top k |
-| A1 family recovery@5: binned spectrum cosine | 0.776 | baseline, 1 Da bins |
-| A1 family recovery@5: precursor m/z only | 0.343 | baseline |
-| A1 family recovery@5: random | 0.017 | chance level |
-| A2 median DreaMS similarity: GNPS edges | 0.681 | 4329 edges |
-| A2 median DreaMS similarity: random pairs | 0.206 | 5000 pairs |
-| A2 Spearman (GNPS cosine vs DreaMS similarity) on GNPS edges | 0.567 |  |
+| spectra used | 3,445 | variant: protocol |
+| spectra in GNPS families with >= 3 members | 2,009 | query spectra for A1 |
+| A1 family recovery@5: DreaMS | 0.654 | 1.0 = all family partners in the top k |
+| A1 family recovery@5: binned spectrum cosine | 0.775 | baseline, 1 Da bins |
+| A1 family recovery@5: precursor m/z only | 0.347 | baseline |
+| A1 family recovery@5: random | 0.018 | chance level |
+| A1 DreaMS minus binned cosine (95% CI) | -0.121 [-0.157, -0.089] | resampling GNPS families |
+| A1 family recovery@5: MS2DeepScore | 0.707 | pre-trained MS2DeepScore |
+| A1 DreaMS minus MS2DeepScore (95% CI) | -0.053 [-0.083, -0.021] | resampling GNPS families |
+| A2 median DreaMS similarity: GNPS edges | 0.679 | 3902 edges |
+| A2 median DreaMS similarity: random pairs | 0.204 | 5000 pairs |
+| A2 Spearman (GNPS cosine vs DreaMS similarity) on GNPS edges | 0.574 |  |
 | A3 DreaMS network settings | k=3, similarity >= 0.7 | as in the DreaMS networking tutorial |
-| A3 DreaMS network edges | 3,938 |  |
-| A3 DreaMS families (size >= 2) | 205 |  |
-| A3 largest DreaMS family | 588 | spectra |
-| A3 agreement with GNPS families (AMI) | 0.486 | 1 = identical, 0 = chance |
-| A3 agreement with GNPS families (ARI) | 0.245 | 1 = identical, 0 = chance |
-| A3 agreement (AMI), only spectra in GNPS families | 0.599 | 2418 spectra |
-| A3 DreaMS edges: same GNPS family | 2,273 | 57.7% |
-| A3 DreaMS edges: different GNPS families | 286 | 7.3% |
-| A3 DreaMS edges: involves a GNPS singleton | 1,379 | 35.0% |
-| A3 GNPS edges also found by the DreaMS network | 22.6% | of 4329 GNPS edges |
+| A3 DreaMS network edges | 3,617 |  |
+| A3 DreaMS families (size >= 2) | 188 |  |
+| A3 largest DreaMS family | 461 | spectra |
+| A3 agreement with GNPS families (AMI) | 0.502 | 1 = identical, 0 = chance |
+| A3 agreement with GNPS families (ARI) | 0.288 | 1 = identical, 0 = chance |
+| A3 agreement (AMI), only spectra in GNPS families | 0.615 | 2277 spectra |
+| A3 DreaMS edges: same GNPS family | 2,139 | 59.1% |
+| A3 DreaMS edges: different GNPS families | 271 | 7.5% |
+| A3 DreaMS edges: involves a GNPS singleton | 1,207 | 33.4% |
+| A3 GNPS edges also found by the DreaMS network | 23.0% | of 3902 GNPS edges |
 
 **Experiment A4: DreaMS network thresholds**
 
 | threshold | edges | families (size >= 2) | spectra in families | largest family | AMI, all spectra | AMI, spectra in GNPS families | GNPS edges recovered (%) |
 |---|---|---|---|---|---|---|---|
-| 0.6 | 6653 | 75 | 3235 | 2974 | 0.1 | 0.153 | 29.9 |
-| 0.7 | 3938 | 205 | 2218 | 588 | 0.486 | 0.599 | 22.6 |
-| 0.8 | 1924 | 112 | 1090 | 388 | 0.423 | 0.45 | 13.4 |
-| 0.85 | 1090 | 80 | 672 | 228 | 0.338 | 0.342 | 7.7 |
-| 0.9 | 294 | 48 | 251 | 75 | 0.117 | 0.114 | 2.3 |
-| 0.95 | 4 | 4 | 8 | 2 | 0.001 | 0.001 | 0.1 |
+| 0.6 | 6118 | 79 | 2998 | 2711 | 0.118 | 0.179 | 30.3 |
+| 0.7 | 3617 | 188 | 2041 | 461 | 0.502 | 0.615 | 23.0 |
+| 0.8 | 1728 | 108 | 991 | 382 | 0.428 | 0.447 | 13.4 |
+| 0.85 | 987 | 77 | 616 | 222 | 0.338 | 0.339 | 7.7 |
+| 0.9 | 267 | 45 | 227 | 75 | 0.113 | 0.109 | 2.2 |
+| 0.95 | 4 | 4 | 8 | 2 | 0.002 | 0.002 | 0.1 |
 
 **Experiment B**
 
@@ -206,20 +252,32 @@ Embeddings: 3,685 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 
 |---|---|---|
 | annotated spectra used | 21 | GNPS library hit with a valid structure |
 | unique structures | 16 | first block of the InChIKey |
+| B used for conclusions | no | needs >= 100 unique structures |
 | fragment tolerance for modified cosine (Da) | 0.5 | taken from the GNPS job |
-| B1 Spearman (Tanimoto vs DreaMS) | 0.023 | 210 pairs |
+| B1 Spearman (Tanimoto vs DreaMS) | 0.024 | 210 pairs |
+| B1 Spearman (Tanimoto vs MS2DeepScore) | 0.161 | 210 pairs |
 | B1 Spearman (Tanimoto vs modified cosine) | 0.097 | 210 pairs |
 | B1 Spearman (Tanimoto vs binned spectrum cosine) | 0.05 | 210 pairs |
+| B1 Spearman (MHFP vs DreaMS) | 0.005 | MHFP Jaccard |
+| B1 Spearman (MHFP vs MS2DeepScore) | 0.306 | MHFP Jaccard |
+| B1 Spearman (MHFP vs modified cosine) | 0.173 | MHFP Jaccard |
+| B1 Spearman (MHFP vs binned spectrum cosine) | 0.153 | MHFP Jaccard |
+| B1 Spearman with Tanimoto, DreaMS minus modified cosine (95% CI) | -0.073 [-0.455, +0.328] | resampling molecules |
+| B1 Spearman with Tanimoto, DreaMS minus MS2DeepScore (95% CI) | -0.136 [-0.407, +0.296] | resampling molecules |
 | B2 top-1 neighbour Tanimoto, any molecule: DreaMS | 0.485 | 21 query spectra |
+| B2 top-1 neighbour Tanimoto, any molecule: MS2DeepScore | 0.397 | 21 query spectra |
 | B2 top-1 neighbour Tanimoto, any molecule: modified cosine | 0.503 | 21 query spectra |
 | B2 top-1 neighbour Tanimoto, any molecule: binned spectrum cosine | 0.456 | 21 query spectra |
 | B2 top-1 neighbour Tanimoto, any molecule: random | 0.151 | chance level |
 | B2 top-1 neighbour Tanimoto, any molecule: best possible | 0.553 | upper limit |
 | B2 top-1 neighbour Tanimoto, other molecules only (analog search): DreaMS | 0.265 | 21 query spectra |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): MS2DeepScore | 0.094 | 21 query spectra |
 | B2 top-1 neighbour Tanimoto, other molecules only (analog search): modified cosine | 0.363 | 21 query spectra |
 | B2 top-1 neighbour Tanimoto, other molecules only (analog search): binned spectrum cosine | 0.144 | 21 query spectra |
 | B2 top-1 neighbour Tanimoto, other molecules only (analog search): random | 0.118 | chance level |
 | B2 top-1 neighbour Tanimoto, other molecules only (analog search): best possible | 0.418 | upper limit |
+| B2 analog search, DreaMS minus modified cosine (95% CI) | -0.098 [-0.174, -0.001] | resampling query molecules |
+| B2 analog search, DreaMS minus MS2DeepScore (95% CI) | +0.171 [-0.009, +0.367] | resampling query molecules |
 
 ![exp_a_umap.png](runs/crusemann_salstrep/results/exp_a_umap.png)
 
@@ -229,9 +287,7 @@ Embeddings: 3,685 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 
 
 ## crusemann_streptomyces: Streptomyces, Crüsemann et al. 2017
 
-Embeddings: 1,973 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 864 s (2026-11-02).
-
-**Cleaning (DreaMS format A)**
+**Input spectra**
 
 | step | spectra |
 |---|---|
@@ -241,76 +297,14 @@ Embeddings: 1,973 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 
 | removed: fewer than 3 peaks above 10% intensity | 285 |
 | removed: precursor m/z above 1000 | 108 |
 | removed: intensity range too small (max/min < 20) | 52 |
-| kept for DreaMS | 1973 |
-
-**Experiment A**
-
-| metric | value | note |
-|---|---|---|
-| spectra used | 1,973 | after the DreaMS quality rules |
-| spectra in GNPS families with >= 3 members | 757 | query spectra for A1 |
-| A1 family recovery@5: DreaMS | 0.72 | 1.0 = all family partners in the top k |
-| A1 family recovery@5: binned spectrum cosine | 0.693 | baseline, 1 Da bins |
-| A1 family recovery@5: precursor m/z only | 0.232 | baseline |
-| A1 family recovery@5: random | 0.01 | chance level |
-| A2 median DreaMS similarity: GNPS edges | 0.717 | 1695 edges |
-| A2 median DreaMS similarity: random pairs | 0.193 | 5000 pairs |
-| A2 Spearman (GNPS cosine vs DreaMS similarity) on GNPS edges | 0.452 |  |
-| A3 DreaMS network settings | k=3, similarity >= 0.7 | as in the DreaMS networking tutorial |
-| A3 DreaMS network edges | 1,362 |  |
-| A3 DreaMS families (size >= 2) | 148 |  |
-| A3 largest DreaMS family | 78 | spectra |
-| A3 agreement with GNPS families (AMI) | 0.571 | 1 = identical, 0 = chance |
-| A3 agreement with GNPS families (ARI) | 0.434 | 1 = identical, 0 = chance |
-| A3 agreement (AMI), only spectra in GNPS families | 0.703 | 887 spectra |
-| A3 DreaMS edges: same GNPS family | 798 | 58.6% |
-| A3 DreaMS edges: different GNPS families | 72 | 5.3% |
-| A3 DreaMS edges: involves a GNPS singleton | 492 | 36.1% |
-| A3 GNPS edges also found by the DreaMS network | 34.5% | of 1695 GNPS edges |
-
-**Experiment A4: DreaMS network thresholds**
-
-| threshold | edges | families (size >= 2) | spectra in families | largest family | AMI, all spectra | AMI, spectra in GNPS families | GNPS edges recovered (%) |
-|---|---|---|---|---|---|---|---|
-| 0.6 | 2948 | 62 | 1629 | 1336 | 0.121 | 0.257 | 42.8 |
-| 0.7 | 1362 | 148 | 949 | 78 | 0.571 | 0.703 | 34.5 |
-| 0.8 | 536 | 87 | 427 | 40 | 0.432 | 0.445 | 19.2 |
-| 0.85 | 237 | 56 | 216 | 34 | 0.258 | 0.255 | 10.3 |
-| 0.9 | 98 | 31 | 99 | 22 | 0.122 | 0.117 | 4.8 |
-| 0.95 | 14 | 8 | 20 | 3 | 0.018 | 0.018 | 0.8 |
-
-**Experiment B**
-
-| metric | value | note |
-|---|---|---|
-| annotated spectra used | 23 | GNPS library hit with a valid structure |
-| unique structures | 18 | first block of the InChIKey |
-| fragment tolerance for modified cosine (Da) | 0.5 | taken from the GNPS job |
-| B1 Spearman (Tanimoto vs DreaMS) | 0.144 | 253 pairs |
-| B1 Spearman (Tanimoto vs modified cosine) | 0.121 | 253 pairs |
-| B1 Spearman (Tanimoto vs binned spectrum cosine) | 0.154 | 253 pairs |
-| B2 top-1 neighbour Tanimoto, any molecule: DreaMS | 0.495 | 23 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: modified cosine | 0.487 | 23 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: binned spectrum cosine | 0.446 | 23 query spectra |
-| B2 top-1 neighbour Tanimoto, any molecule: random | 0.151 | chance level |
-| B2 top-1 neighbour Tanimoto, any molecule: best possible | 0.613 | upper limit |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): DreaMS | 0.313 | 23 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): modified cosine | 0.398 | 23 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): binned spectrum cosine | 0.315 | 23 query spectra |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): random | 0.131 | chance level |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): best possible | 0.527 | upper limit |
-
-![exp_a_umap.png](runs/crusemann_streptomyces/results/exp_a_umap.png)
-
-![exp_a_similarity_hist.png](runs/crusemann_streptomyces/results/exp_a_similarity_hist.png)
-
-![exp_b_structure.png](runs/crusemann_streptomyces/results/exp_b_structure.png)
+| kept by our cleaning (all_kept) | 1973 |
+| pass DreaMS's own check, unchanged (protocol) | 0 |
 
 ## chevrette_insect: Insect-associated actinobacteria, Chevrette et al. 2019
 
-Embeddings: 825 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 360 s (2026-11-09).
+Embeddings: 785 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 505 s (2026-11-09).
 
-**Cleaning (DreaMS format A)**
+**Input spectra**
 
 | step | spectra |
 |---|---|
@@ -319,43 +313,47 @@ Embeddings: 825 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 36
 | removed: intensity range too small (max/min < 20) | 290 |
 | removed: fewer than 3 peaks above 10% intensity | 55 |
 | removed: precursor m/z above 1000 | 44 |
-| kept for DreaMS | 825 |
+| kept by our cleaning (all_kept) | 825 |
+| pass DreaMS's own check, unchanged (protocol) | 785 |
 
 **Experiment A**
 
 | metric | value | note |
 |---|---|---|
-| spectra used | 825 | after the DreaMS quality rules |
-| spectra in GNPS families with >= 3 members | 494 | query spectra for A1 |
-| A1 family recovery@5: DreaMS | 0.824 | 1.0 = all family partners in the top k |
-| A1 family recovery@5: binned spectrum cosine | 0.78 | baseline, 1 Da bins |
-| A1 family recovery@5: precursor m/z only | 0.21 | baseline |
-| A1 family recovery@5: random | 0.036 | chance level |
-| A2 median DreaMS similarity: GNPS edges | 0.802 | 1075 edges |
-| A2 median DreaMS similarity: random pairs | 0.197 | 4996 pairs |
-| A2 Spearman (GNPS cosine vs DreaMS similarity) on GNPS edges | 0.577 |  |
+| spectra used | 785 | variant: protocol |
+| spectra in GNPS families with >= 3 members | 446 | query spectra for A1 |
+| A1 family recovery@5: DreaMS | 0.815 | 1.0 = all family partners in the top k |
+| A1 family recovery@5: binned spectrum cosine | 0.77 | baseline, 1 Da bins |
+| A1 family recovery@5: precursor m/z only | 0.202 | baseline |
+| A1 family recovery@5: random | 0.038 | chance level |
+| A1 DreaMS minus binned cosine (95% CI) | +0.045 [-0.007, +0.111] | resampling GNPS families |
+| A1 family recovery@5: MS2DeepScore | 0.762 | pre-trained MS2DeepScore |
+| A1 DreaMS minus MS2DeepScore (95% CI) | +0.053 [+0.011, +0.112] | resampling GNPS families |
+| A2 median DreaMS similarity: GNPS edges | 0.799 | 903 edges |
+| A2 median DreaMS similarity: random pairs | 0.202 | 4996 pairs |
+| A2 Spearman (GNPS cosine vs DreaMS similarity) on GNPS edges | 0.651 |  |
 | A3 DreaMS network settings | k=3, similarity >= 0.7 | as in the DreaMS networking tutorial |
-| A3 DreaMS network edges | 997 |  |
-| A3 DreaMS families (size >= 2) | 71 |  |
-| A3 largest DreaMS family | 190 | spectra |
-| A3 agreement with GNPS families (AMI) | 0.657 | 1 = identical, 0 = chance |
-| A3 agreement with GNPS families (ARI) | 0.42 | 1 = identical, 0 = chance |
-| A3 agreement (AMI), only spectra in GNPS families | 0.712 | 600 spectra |
-| A3 DreaMS edges: same GNPS family | 747 | 74.9% |
-| A3 DreaMS edges: different GNPS families | 71 | 7.1% |
-| A3 DreaMS edges: involves a GNPS singleton | 179 | 18.0% |
-| A3 GNPS edges also found by the DreaMS network | 42.7% | of 1075 GNPS edges |
+| A3 DreaMS network edges | 908 |  |
+| A3 DreaMS families (size >= 2) | 68 |  |
+| A3 largest DreaMS family | 188 | spectra |
+| A3 agreement with GNPS families (AMI) | 0.603 | 1 = identical, 0 = chance |
+| A3 agreement with GNPS families (ARI) | 0.351 | 1 = identical, 0 = chance |
+| A3 agreement (AMI), only spectra in GNPS families | 0.655 | 554 spectra |
+| A3 DreaMS edges: same GNPS family | 668 | 73.6% |
+| A3 DreaMS edges: different GNPS families | 59 | 6.5% |
+| A3 DreaMS edges: involves a GNPS singleton | 181 | 19.9% |
+| A3 GNPS edges also found by the DreaMS network | 44.3% | of 903 GNPS edges |
 
 **Experiment A4: DreaMS network thresholds**
 
 | threshold | edges | families (size >= 2) | spectra in families | largest family | AMI, all spectra | AMI, spectra in GNPS families | GNPS edges recovered (%) |
 |---|---|---|---|---|---|---|---|
-| 0.6 | 1456 | 21 | 754 | 666 | 0.174 | 0.186 | 48.2 |
-| 0.7 | 997 | 71 | 593 | 190 | 0.657 | 0.712 | 42.7 |
-| 0.8 | 644 | 75 | 423 | 68 | 0.677 | 0.692 | 32.7 |
-| 0.85 | 446 | 58 | 309 | 66 | 0.582 | 0.58 | 22.9 |
-| 0.9 | 215 | 39 | 176 | 44 | 0.381 | 0.368 | 11.9 |
-| 0.95 | 48 | 11 | 43 | 16 | 0.09 | 0.086 | 3.3 |
+| 0.6 | 1369 | 21 | 709 | 618 | 0.184 | 0.21 | 51.1 |
+| 0.7 | 908 | 68 | 554 | 188 | 0.603 | 0.655 | 44.3 |
+| 0.8 | 557 | 73 | 379 | 67 | 0.677 | 0.691 | 33.2 |
+| 0.85 | 377 | 54 | 267 | 66 | 0.563 | 0.56 | 22.1 |
+| 0.9 | 196 | 33 | 153 | 42 | 0.383 | 0.368 | 12.4 |
+| 0.95 | 47 | 10 | 41 | 16 | 0.097 | 0.093 | 3.8 |
 
 **Experiment B**
 
@@ -363,20 +361,32 @@ Embeddings: 825 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 36
 |---|---|---|
 | annotated spectra used | 29 | GNPS library hit with a valid structure |
 | unique structures | 23 | first block of the InChIKey |
+| B used for conclusions | no | needs >= 100 unique structures |
 | fragment tolerance for modified cosine (Da) | 0.02 | taken from the GNPS job |
 | B1 Spearman (Tanimoto vs DreaMS) | 0.36 | 406 pairs |
+| B1 Spearman (Tanimoto vs MS2DeepScore) | 0.414 | 406 pairs |
 | B1 Spearman (Tanimoto vs modified cosine) | 0.378 | 406 pairs |
 | B1 Spearman (Tanimoto vs binned spectrum cosine) | 0.201 | 406 pairs |
+| B1 Spearman (MHFP vs DreaMS) | 0.462 | MHFP Jaccard |
+| B1 Spearman (MHFP vs MS2DeepScore) | 0.492 | MHFP Jaccard |
+| B1 Spearman (MHFP vs modified cosine) | 0.429 | MHFP Jaccard |
+| B1 Spearman (MHFP vs binned spectrum cosine) | 0.251 | MHFP Jaccard |
+| B1 Spearman with Tanimoto, DreaMS minus modified cosine (95% CI) | -0.018 [-0.232, +0.142] | resampling molecules |
+| B1 Spearman with Tanimoto, DreaMS minus MS2DeepScore (95% CI) | -0.054 [-0.249, +0.106] | resampling molecules |
 | B2 top-1 neighbour Tanimoto, any molecule: DreaMS | 0.583 | 29 query spectra |
+| B2 top-1 neighbour Tanimoto, any molecule: MS2DeepScore | 0.612 | 29 query spectra |
 | B2 top-1 neighbour Tanimoto, any molecule: modified cosine | 0.536 | 29 query spectra |
 | B2 top-1 neighbour Tanimoto, any molecule: binned spectrum cosine | 0.584 | 29 query spectra |
 | B2 top-1 neighbour Tanimoto, any molecule: random | 0.219 | chance level |
 | B2 top-1 neighbour Tanimoto, any molecule: best possible | 0.648 | upper limit |
 | B2 top-1 neighbour Tanimoto, other molecules only (analog search): DreaMS | 0.484 | 29 query spectra |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): MS2DeepScore | 0.461 | 29 query spectra |
 | B2 top-1 neighbour Tanimoto, other molecules only (analog search): modified cosine | 0.457 | 29 query spectra |
 | B2 top-1 neighbour Tanimoto, other molecules only (analog search): binned spectrum cosine | 0.476 | 29 query spectra |
 | B2 top-1 neighbour Tanimoto, other molecules only (analog search): random | 0.206 | chance level |
 | B2 top-1 neighbour Tanimoto, other molecules only (analog search): best possible | 0.526 | upper limit |
+| B2 analog search, DreaMS minus modified cosine (95% CI) | +0.027 [-0.005, +0.086] | resampling query molecules |
+| B2 analog search, DreaMS minus MS2DeepScore (95% CI) | +0.023 [+0.000, +0.045] | resampling query molecules |
 
 ![exp_a_umap.png](runs/chevrette_insect/results/exp_a_umap.png)
 
@@ -386,9 +396,9 @@ Embeddings: 825 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 36
 
 ## dorrestein_salbus: Streptomyces albus J1074, Dorrestein lab
 
-Embeddings: 2,053 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 1556 s (2026-11-09).
+Embeddings: 2,392 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 2703 s (2026-11-09).
 
-**Cleaning (DreaMS format A)**
+**Input spectra**
 
 | step | spectra |
 |---|---|
@@ -397,43 +407,47 @@ Embeddings: 2,053 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 
 | removed: charge is not +1 | 657 |
 | removed: fewer than 3 peaks above 10% intensity | 533 |
 | removed: precursor m/z above 1000 | 68 |
-| kept for DreaMS | 2053 |
+| kept by our cleaning (all_kept) | 2053 |
+| pass DreaMS's own check, unchanged (protocol) | 2392 |
 
 **Experiment A**
 
 | metric | value | note |
 |---|---|---|
-| spectra used | 2,053 | after the DreaMS quality rules |
-| spectra in GNPS families with >= 3 members | 1,214 | query spectra for A1 |
-| A1 family recovery@5: DreaMS | 0.762 | 1.0 = all family partners in the top k |
-| A1 family recovery@5: binned spectrum cosine | 0.786 | baseline, 1 Da bins |
-| A1 family recovery@5: precursor m/z only | 0.148 | baseline |
-| A1 family recovery@5: random | 0.016 | chance level |
-| A2 median DreaMS similarity: GNPS edges | 0.751 | 2670 edges |
-| A2 median DreaMS similarity: random pairs | 0.174 | 5000 pairs |
-| A2 Spearman (GNPS cosine vs DreaMS similarity) on GNPS edges | 0.515 |  |
+| spectra used | 2,392 | variant: protocol |
+| spectra in GNPS families with >= 3 members | 1,202 | query spectra for A1 |
+| A1 family recovery@5: DreaMS | 0.761 | 1.0 = all family partners in the top k |
+| A1 family recovery@5: binned spectrum cosine | 0.779 | baseline, 1 Da bins |
+| A1 family recovery@5: precursor m/z only | 0.147 | baseline |
+| A1 family recovery@5: random | 0.014 | chance level |
+| A1 DreaMS minus binned cosine (95% CI) | -0.018 [-0.061, +0.033] | resampling GNPS families |
+| A1 family recovery@5: MS2DeepScore | 0.757 | pre-trained MS2DeepScore |
+| A1 DreaMS minus MS2DeepScore (95% CI) | +0.004 [-0.022, +0.030] | resampling GNPS families |
+| A2 median DreaMS similarity: GNPS edges | 0.749 | 2655 edges |
+| A2 median DreaMS similarity: random pairs | 0.186 | 5000 pairs |
+| A2 Spearman (GNPS cosine vs DreaMS similarity) on GNPS edges | 0.514 |  |
 | A3 DreaMS network settings | k=3, similarity >= 0.7 | as in the DreaMS networking tutorial |
-| A3 DreaMS network edges | 2,159 |  |
-| A3 DreaMS families (size >= 2) | 149 |  |
-| A3 largest DreaMS family | 512 | spectra |
-| A3 agreement with GNPS families (AMI) | 0.535 | 1 = identical, 0 = chance |
+| A3 DreaMS network edges | 2,392 |  |
+| A3 DreaMS families (size >= 2) | 166 |  |
+| A3 largest DreaMS family | 500 | spectra |
+| A3 agreement with GNPS families (AMI) | 0.508 | 1 = identical, 0 = chance |
 | A3 agreement with GNPS families (ARI) | 0.138 | 1 = identical, 0 = chance |
-| A3 agreement (AMI), only spectra in GNPS families | 0.57 | 1398 spectra |
-| A3 DreaMS edges: same GNPS family | 1,505 | 69.7% |
-| A3 DreaMS edges: different GNPS families | 275 | 12.7% |
-| A3 DreaMS edges: involves a GNPS singleton | 379 | 17.6% |
-| A3 GNPS edges also found by the DreaMS network | 39.9% | of 2670 GNPS edges |
+| A3 agreement (AMI), only spectra in GNPS families | 0.571 | 1388 spectra |
+| A3 DreaMS edges: same GNPS family | 1,497 | 62.6% |
+| A3 DreaMS edges: different GNPS families | 265 | 11.1% |
+| A3 DreaMS edges: involves a GNPS singleton | 630 | 26.3% |
+| A3 GNPS edges also found by the DreaMS network | 40.0% | of 2655 GNPS edges |
 
 **Experiment A4: DreaMS network thresholds**
 
 | threshold | edges | families (size >= 2) | spectra in families | largest family | AMI, all spectra | AMI, spectra in GNPS families | GNPS edges recovered (%) |
 |---|---|---|---|---|---|---|---|
-| 0.6 | 3163 | 106 | 1702 | 1237 | 0.309 | 0.319 | 47.1 |
-| 0.7 | 2159 | 149 | 1339 | 512 | 0.535 | 0.57 | 39.9 |
-| 0.8 | 1165 | 162 | 840 | 79 | 0.5 | 0.505 | 27.2 |
-| 0.85 | 697 | 130 | 561 | 57 | 0.368 | 0.366 | 18.3 |
-| 0.9 | 333 | 95 | 328 | 42 | 0.22 | 0.214 | 9.8 |
-| 0.95 | 81 | 38 | 103 | 20 | 0.06 | 0.059 | 2.6 |
+| 0.6 | 3744 | 105 | 1983 | 1504 | 0.237 | 0.32 | 47.2 |
+| 0.7 | 2392 | 166 | 1489 | 500 | 0.508 | 0.571 | 40.0 |
+| 0.8 | 1153 | 172 | 858 | 78 | 0.494 | 0.497 | 26.9 |
+| 0.85 | 671 | 129 | 549 | 56 | 0.367 | 0.36 | 18.1 |
+| 0.9 | 319 | 91 | 315 | 42 | 0.217 | 0.21 | 9.6 |
+| 0.95 | 81 | 38 | 103 | 20 | 0.061 | 0.059 | 2.6 |
 
 **Experiment B**
 
@@ -441,20 +455,32 @@ Embeddings: 2,053 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 
 |---|---|---|
 | annotated spectra used | 32 | GNPS library hit with a valid structure |
 | unique structures | 27 | first block of the InChIKey |
+| B used for conclusions | no | needs >= 100 unique structures |
 | fragment tolerance for modified cosine (Da) | 0.01 | taken from the GNPS job |
-| B1 Spearman (Tanimoto vs DreaMS) | 0.064 | 496 pairs |
+| B1 Spearman (Tanimoto vs DreaMS) | 0.071 | 496 pairs |
+| B1 Spearman (Tanimoto vs MS2DeepScore) | 0.185 | 496 pairs |
 | B1 Spearman (Tanimoto vs modified cosine) | 0.234 | 496 pairs |
-| B1 Spearman (Tanimoto vs binned spectrum cosine) | 0.191 | 496 pairs |
+| B1 Spearman (Tanimoto vs binned spectrum cosine) | 0.19 | 496 pairs |
+| B1 Spearman (MHFP vs DreaMS) | 0.331 | MHFP Jaccard |
+| B1 Spearman (MHFP vs MS2DeepScore) | 0.331 | MHFP Jaccard |
+| B1 Spearman (MHFP vs modified cosine) | 0.424 | MHFP Jaccard |
+| B1 Spearman (MHFP vs binned spectrum cosine) | 0.275 | MHFP Jaccard |
+| B1 Spearman with Tanimoto, DreaMS minus modified cosine (95% CI) | -0.163 [-0.357, +0.022] | resampling molecules |
+| B1 Spearman with Tanimoto, DreaMS minus MS2DeepScore (95% CI) | -0.114 [-0.325, +0.090] | resampling molecules |
 | B2 top-1 neighbour Tanimoto, any molecule: DreaMS | 0.443 | 32 query spectra |
+| B2 top-1 neighbour Tanimoto, any molecule: MS2DeepScore | 0.462 | 32 query spectra |
 | B2 top-1 neighbour Tanimoto, any molecule: modified cosine | 0.444 | 32 query spectra |
 | B2 top-1 neighbour Tanimoto, any molecule: binned spectrum cosine | 0.463 | 32 query spectra |
 | B2 top-1 neighbour Tanimoto, any molecule: random | 0.138 | chance level |
 | B2 top-1 neighbour Tanimoto, any molecule: best possible | 0.657 | upper limit |
 | B2 top-1 neighbour Tanimoto, other molecules only (analog search): DreaMS | 0.268 | 32 query spectra |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): MS2DeepScore | 0.335 | 32 query spectra |
 | B2 top-1 neighbour Tanimoto, other molecules only (analog search): modified cosine | 0.305 | 32 query spectra |
 | B2 top-1 neighbour Tanimoto, other molecules only (analog search): binned spectrum cosine | 0.29 | 32 query spectra |
 | B2 top-1 neighbour Tanimoto, other molecules only (analog search): random | 0.127 | chance level |
 | B2 top-1 neighbour Tanimoto, other molecules only (analog search): best possible | 0.522 | upper limit |
+| B2 analog search, DreaMS minus modified cosine (95% CI) | -0.037 [-0.122, +0.044] | resampling query molecules |
+| B2 analog search, DreaMS minus MS2DeepScore (95% CI) | -0.067 [-0.148, -0.004] | resampling query molecules |
 
 ![exp_a_umap.png](runs/dorrestein_salbus/results/exp_a_umap.png)
 
@@ -464,9 +490,9 @@ Embeddings: 2,053 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 
 
 ## tahlan_streptomyces: Clavulanic acid producing Streptomyces, Tahlan lab
 
-Embeddings: 8,903 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 4432 s (2026-11-09).
+Embeddings: 8,901 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 69 s (2026-11-09).
 
-**Cleaning (DreaMS format A)**
+**Input spectra**
 
 | step | spectra |
 |---|---|
@@ -476,43 +502,47 @@ Embeddings: 8,903 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 
 | removed: fewer than 3 peaks above 10% intensity | 1392 |
 | removed: charge is not +1 | 776 |
 | removed: precursor m/z above 1000 | 129 |
-| kept for DreaMS | 8903 |
+| kept by our cleaning (all_kept) | 8903 |
+| pass DreaMS's own check, unchanged (protocol) | 8901 |
 
 **Experiment A**
 
 | metric | value | note |
 |---|---|---|
-| spectra used | 8,903 | after the DreaMS quality rules |
-| spectra in GNPS families with >= 3 members | 4,347 | query spectra for A1 |
+| spectra used | 8,901 | variant: protocol |
+| spectra in GNPS families with >= 3 members | 4,339 | query spectra for A1 |
 | A1 family recovery@5: DreaMS | 0.618 | 1.0 = all family partners in the top k |
-| A1 family recovery@5: binned spectrum cosine | 0.655 | baseline, 1 Da bins |
-| A1 family recovery@5: precursor m/z only | 0.04 | baseline |
+| A1 family recovery@5: binned spectrum cosine | 0.654 | baseline, 1 Da bins |
+| A1 family recovery@5: precursor m/z only | 0.043 | baseline |
 | A1 family recovery@5: random | 0.002 | chance level |
-| A2 median DreaMS similarity: GNPS edges | 0.724 | 8067 edges |
-| A2 median DreaMS similarity: random pairs | 0.149 | 8066 pairs |
-| A2 Spearman (GNPS cosine vs DreaMS similarity) on GNPS edges | 0.485 |  |
+| A1 DreaMS minus binned cosine (95% CI) | -0.036 [-0.060, -0.014] | resampling GNPS families |
+| A1 family recovery@5: MS2DeepScore | 0.597 | pre-trained MS2DeepScore |
+| A1 DreaMS minus MS2DeepScore (95% CI) | +0.021 [+0.002, +0.038] | resampling GNPS families |
+| A2 median DreaMS similarity: GNPS edges | 0.724 | 8047 edges |
+| A2 median DreaMS similarity: random pairs | 0.148 | 8046 pairs |
+| A2 Spearman (GNPS cosine vs DreaMS similarity) on GNPS edges | 0.484 |  |
 | A3 DreaMS network settings | k=3, similarity >= 0.7 | as in the DreaMS networking tutorial |
-| A3 DreaMS network edges | 7,784 |  |
-| A3 DreaMS families (size >= 2) | 574 |  |
-| A3 largest DreaMS family | 1,192 | spectra |
-| A3 agreement with GNPS families (AMI) | 0.409 | 1 = identical, 0 = chance |
+| A3 DreaMS network edges | 7,783 |  |
+| A3 DreaMS families (size >= 2) | 570 |  |
+| A3 largest DreaMS family | 1,201 | spectra |
+| A3 agreement with GNPS families (AMI) | 0.408 | 1 = identical, 0 = chance |
 | A3 agreement with GNPS families (ARI) | 0.044 | 1 = identical, 0 = chance |
-| A3 agreement (AMI), only spectra in GNPS families | 0.504 | 5319 spectra |
-| A3 DreaMS edges: same GNPS family | 4,169 | 53.6% |
-| A3 DreaMS edges: different GNPS families | 1,114 | 14.3% |
-| A3 DreaMS edges: involves a GNPS singleton | 2,501 | 32.1% |
-| A3 GNPS edges also found by the DreaMS network | 37.6% | of 8067 GNPS edges |
+| A3 agreement (AMI), only spectra in GNPS families | 0.502 | 5309 spectra |
+| A3 DreaMS edges: same GNPS family | 4,156 | 53.4% |
+| A3 DreaMS edges: different GNPS families | 1,120 | 14.4% |
+| A3 DreaMS edges: involves a GNPS singleton | 2,507 | 32.2% |
+| A3 GNPS edges also found by the DreaMS network | 37.6% | of 8047 GNPS edges |
 
 **Experiment A4: DreaMS network thresholds**
 
 | threshold | edges | families (size >= 2) | spectra in families | largest family | AMI, all spectra | AMI, spectra in GNPS families | GNPS edges recovered (%) |
 |---|---|---|---|---|---|---|---|
-| 0.6 | 13505 | 302 | 7295 | 6080 | 0.12 | 0.161 | 46.0 |
-| 0.7 | 7784 | 574 | 4884 | 1192 | 0.409 | 0.504 | 37.6 |
-| 0.8 | 3536 | 492 | 2606 | 293 | 0.446 | 0.474 | 24.2 |
-| 0.85 | 1892 | 344 | 1547 | 114 | 0.332 | 0.339 | 15.2 |
-| 0.9 | 761 | 188 | 712 | 44 | 0.165 | 0.165 | 7.3 |
-| 0.95 | 103 | 57 | 144 | 19 | 0.027 | 0.026 | 1.2 |
+| 0.6 | 13512 | 302 | 7290 | 6087 | 0.119 | 0.159 | 46.0 |
+| 0.7 | 7783 | 570 | 4871 | 1201 | 0.408 | 0.502 | 37.6 |
+| 0.8 | 3541 | 487 | 2602 | 293 | 0.444 | 0.472 | 24.2 |
+| 0.85 | 1891 | 342 | 1543 | 114 | 0.332 | 0.339 | 15.2 |
+| 0.9 | 758 | 187 | 709 | 44 | 0.165 | 0.165 | 7.3 |
+| 0.95 | 102 | 56 | 142 | 19 | 0.026 | 0.026 | 1.1 |
 
 **Experiment B**
 
@@ -520,20 +550,32 @@ Embeddings: 8,903 spectra, DreaMS_embedding (pre-trained, no fine-tuning), CPU, 
 |---|---|---|
 | annotated spectra used | 420 | GNPS library hit with a valid structure |
 | unique structures | 324 | first block of the InChIKey |
+| B used for conclusions | yes | needs >= 100 unique structures |
 | fragment tolerance for modified cosine (Da) | 0.02 | taken from the GNPS job |
-| B1 Spearman (Tanimoto vs DreaMS) | 0.23 | 87,990 pairs |
+| B1 Spearman (Tanimoto vs DreaMS) | 0.229 | 87,990 pairs |
+| B1 Spearman (Tanimoto vs MS2DeepScore) | 0.261 | 87,990 pairs |
 | B1 Spearman (Tanimoto vs modified cosine) | 0.259 | 87,990 pairs |
 | B1 Spearman (Tanimoto vs binned spectrum cosine) | 0.203 | 87,990 pairs |
-| B2 top-1 neighbour Tanimoto, any molecule: DreaMS | 0.543 | 420 query spectra |
+| B1 Spearman (MHFP vs DreaMS) | 0.273 | MHFP Jaccard |
+| B1 Spearman (MHFP vs MS2DeepScore) | 0.335 | MHFP Jaccard |
+| B1 Spearman (MHFP vs modified cosine) | 0.331 | MHFP Jaccard |
+| B1 Spearman (MHFP vs binned spectrum cosine) | 0.266 | MHFP Jaccard |
+| B1 Spearman with Tanimoto, DreaMS minus modified cosine (95% CI) | -0.030 [-0.077, +0.014] | resampling molecules |
+| B1 Spearman with Tanimoto, DreaMS minus MS2DeepScore (95% CI) | -0.033 [-0.084, +0.013] | resampling molecules |
+| B2 top-1 neighbour Tanimoto, any molecule: DreaMS | 0.542 | 420 query spectra |
+| B2 top-1 neighbour Tanimoto, any molecule: MS2DeepScore | 0.521 | 420 query spectra |
 | B2 top-1 neighbour Tanimoto, any molecule: modified cosine | 0.517 | 420 query spectra |
 | B2 top-1 neighbour Tanimoto, any molecule: binned spectrum cosine | 0.506 | 420 query spectra |
 | B2 top-1 neighbour Tanimoto, any molecule: random | 0.132 | chance level |
 | B2 top-1 neighbour Tanimoto, any molecule: best possible | 0.775 | upper limit |
-| B2 top-1 neighbour Tanimoto, other molecules only (analog search): DreaMS | 0.4 | 420 query spectra |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): DreaMS | 0.399 | 420 query spectra |
+| B2 top-1 neighbour Tanimoto, other molecules only (analog search): MS2DeepScore | 0.386 | 420 query spectra |
 | B2 top-1 neighbour Tanimoto, other molecules only (analog search): modified cosine | 0.408 | 420 query spectra |
 | B2 top-1 neighbour Tanimoto, other molecules only (analog search): binned spectrum cosine | 0.375 | 420 query spectra |
 | B2 top-1 neighbour Tanimoto, other molecules only (analog search): random | 0.128 | chance level |
 | B2 top-1 neighbour Tanimoto, other molecules only (analog search): best possible | 0.666 | upper limit |
+| B2 analog search, DreaMS minus modified cosine (95% CI) | -0.009 [-0.032, +0.017] | resampling query molecules |
+| B2 analog search, DreaMS minus MS2DeepScore (95% CI) | +0.013 [-0.010, +0.040] | resampling query molecules |
 
 ![exp_a_umap.png](runs/tahlan_streptomyces/results/exp_a_umap.png)
 

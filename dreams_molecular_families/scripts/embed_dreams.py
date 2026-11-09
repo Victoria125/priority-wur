@@ -18,14 +18,37 @@ import pandas as pd
 import common as C
 
 
+def spectrum_key(spec):
+    """Two spectra with the same key are identical in the MGF file (same cluster,
+    precursor and peaks), so DreaMS gives them the same embedding."""
+    return spec["scans"], spec["precursor_mz"], spec["mz"].tobytes(), spec["intensity"].tobytes()
+
+
+def reusable_embeddings(run, variant, spectra):
+    """Embeddings of identical spectra in another, up-to-date variant: {row: vector}."""
+    q = C.run_paths(run, variant)
+    if not (q.embeddings.exists() and q.embeddings_info.exists() and q.clean_mgf.exists()):
+        return {}
+    if C.read_json(q.embeddings_info).get("clean_mgf_md5") != C.md5sum(q.clean_mgf):
+        return {}
+    row_of = {spectrum_key(s): j for j, s in enumerate(C.read_mgf(q.clean_mgf))}
+    other = np.load(q.embeddings)
+    return {i: other[row_of[spectrum_key(s)]] for i, s in enumerate(spectra) if spectrum_key(s) in row_of}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--run", required=True, help="name of the run (see common.RUNS)")
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--force", action="store_true", help="recompute even if up to date")
+    parser.add_argument("--variant", default="protocol", choices=list(C.VARIANTS))
+    parser.add_argument("--reuse-from", default=None, choices=list(C.VARIANTS),
+                        help="copy the embeddings of identical spectra from another variant and embed only the rest")
     args = parser.parse_args()
 
-    p = C.run_paths(args.run)
+    p = C.run_paths(args.run, args.variant)
+    if not p.clean_mgf.exists():
+        raise SystemExit(f"{args.run} has no spectra for the '{args.variant}' variant. Nothing to embed.")
     mgf_md5 = C.md5sum(p.clean_mgf)
     if not args.force and p.embeddings.exists() and p.embeddings_info.exists():
         if C.read_json(p.embeddings_info).get("clean_mgf_md5") == mgf_md5:
@@ -40,12 +63,27 @@ def main():
     else:
         device = "CPU (this can take a while; a GPU is much faster)"
     meta = pd.read_parquet(p.metadata)
-    print(f"Computing DreaMS embeddings for {len(meta):,} spectra on {device}...")
+    spectra = C.read_mgf(p.clean_mgf)
+    reused = reusable_embeddings(args.run, args.reuse_from, spectra) if args.reuse_from else {}
+    todo = [i for i in range(len(spectra)) if i not in reused]
+    print(f"Computing DreaMS embeddings for {len(todo):,} of {len(meta):,} spectra on {device} "
+          f"({len(reused):,} identical spectra reused from '{args.reuse_from}')...")
 
     start = time.time()
-    # DreaMS reads the MGF file and returns one 1024-dimensional vector per
-    # spectrum, in the same order as the file.
-    embeddings = np.asarray(dreams_embeddings(str(p.clean_mgf), batch_size=args.batch_size), dtype=np.float32)
+    embeddings = np.zeros((len(spectra), 1024), dtype=np.float32)
+    for i, vector in reused.items():
+        embeddings[i] = vector
+    if todo:
+        # DreaMS reads an MGF file and returns one 1024-dimensional vector per
+        # spectrum, in the same order as the file.
+        source = p.clean_mgf
+        if reused:
+            source = p.data / "_spectra_to_embed.mgf"
+            C.write_mgf([spectra[i] for i in todo], source)
+        embeddings[todo] = np.asarray(dreams_embeddings(str(source), batch_size=args.batch_size), dtype=np.float32)
+        if source != p.clean_mgf:
+            source.unlink()
+            source.with_suffix(".hdf5").unlink(missing_ok=True)
     seconds = time.time() - start
 
     if embeddings.shape[0] != len(meta):
@@ -61,6 +99,9 @@ def main():
         "dreams_commit": C.DREAMS_COMMIT,
         "device": device.split(" (")[0],
         "seconds": round(seconds),
+        "computed": len(todo),
+        "reused from variant": args.reuse_from if reused else None,
+        "reused (identical spectra)": len(reused),
         "computed_on": datetime.now().isoformat(timespec="seconds"),
         "machine": platform.platform(),
     }, p.embeddings_info)

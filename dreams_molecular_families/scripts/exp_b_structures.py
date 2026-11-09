@@ -2,10 +2,15 @@
 
 Only spectra with a GNPS library hit that has a structure (SMILES) are used.
 For every pair of these spectra we compare:
-  - structural similarity of the two molecules (Tanimoto, Morgan fingerprints)
+  - structural similarity of the two molecules: Tanimoto of Morgan
+    fingerprints (main) and MHFP (Daniel Probst's MinHash fingerprint)
   - DreaMS similarity (cosine of the embeddings)
+  - MS2DeepScore (cosine of its embeddings, if scripts/embed_ms2deepscore.py ran)
   - modified cosine (the spectral score GNPS uses to build its network)
   - binned spectrum cosine (a simple spectral baseline)
+
+Differences between methods get a 95% interval from resampling molecules,
+because spectra of the same molecule are not independent.
 """
 import argparse
 import warnings
@@ -16,6 +21,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matchms import Spectrum
 from matchms.similarity import ModifiedCosine
+from mhfp.encoder import MHFPEncoder
 from rdkit import Chem, DataStructs, RDLogger
 from rdkit.Chem import rdFingerprintGenerator
 from rdkit.Chem.MolStandardize import rdMolStandardize
@@ -25,6 +31,11 @@ import common as C
 
 RDLogger.DisableLog("rdApp.*")
 warnings.filterwarnings("ignore")
+
+# A dataset counts for conclusions only with at least this many different
+# molecules. Rule set on 2026-11-09, after the first results: Duncan had 77
+# in-domain structures and no method followed them (Spearman ~0.05).
+MIN_UNIQUE_STRUCTURES = 100
 
 
 def molecule(smiles):
@@ -45,29 +56,63 @@ def fragment_tolerance(p, default=0.02):
         return default
 
 
-def top1_tanimoto(similarity, tanimoto, blocked):
+def top1_values(similarity, tanimoto, blocked):
     """For each spectrum, take its most similar other spectrum (by a spectral
-    score) and return the Tanimoto of that pair. Blocked pairs are skipped."""
+    score) and return the Tanimoto of that pair. Blocked pairs are skipped.
+    Returns the values and which spectra had a candidate at all."""
     s = similarity.astype(float).copy()
     s[blocked] = -np.inf
     has_candidate = np.isfinite(s.max(axis=1))
     best = s.argmax(axis=1)
-    values = tanimoto[np.arange(len(s)), best][has_candidate]
-    return float(values.mean()), int(has_candidate.sum())
+    return tanimoto[np.arange(len(s)), best], has_candidate
+
+
+def top1_tanimoto(similarity, tanimoto, blocked):
+    values, has_candidate = top1_values(similarity, tanimoto, blocked)
+    return float(values[has_candidate].mean()), int(has_candidate.sum())
+
+
+def mhfp_similarity(mols):
+    """MHFP (MinHash fingerprint, 2048 hashes): share of equal hashes = estimated Jaccard."""
+    encoder = MHFPEncoder(2048)
+    fps = np.array([encoder.encode_mol(m) for m in mols])
+    return np.array([(fps == fp).mean(axis=1) for fp in fps])
+
+
+def spearman_difference_ci(structure, score_a, score_b, keys, n_boot=300, seed=0):
+    """Spearman(structure, a) minus Spearman(structure, b), with a 95% interval
+    from resampling molecules (all spectra of a molecule together). Pairs of a
+    spectrum with its own copy are skipped."""
+    rng = np.random.default_rng(seed)
+    unique = np.unique(keys)
+    rows_of = {k: np.where(keys == k)[0] for k in unique}
+
+    def difference(idx):
+        i, j = np.triu_indices(len(idx), k=1)
+        keep = idx[i] != idx[j]
+        a, b = idx[i][keep], idx[j][keep]
+        t = structure[a, b]
+        return spearmanr(t, score_a[a, b]).correlation - spearmanr(t, score_b[a, b]).correlation
+
+    point = difference(np.arange(len(keys)))
+    draws = [difference(np.concatenate([rows_of[k] for k in rng.choice(unique, len(unique))]))
+             for _ in range(n_boot)]
+    low, high = np.nanpercentile(draws, [2.5, 97.5])
+    return float(point), float(low), float(high)
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--run", required=True, help="name of the run (see common.RUNS)")
+    parser.add_argument("--variant", default="protocol", choices=list(C.VARIANTS))
     parser.add_argument("--min-library-score", type=float, default=0.0,
                         help="only use library hits with at least this GNPS score (MQScore)")
-    parser.add_argument("--in-domain-only", action="store_true",
-                        help="only spectra that DreaMS's own format A check accepts")
     args = parser.parse_args()
 
-    p = C.run_paths(args.run, args.in_domain_only)
+    p = C.run_paths(args.run, args.variant)
     p.results.mkdir(parents=True, exist_ok=True)
     meta, emb = C.load_metadata_and_embeddings(p)
+    ms2ds = C.load_ms2deepscore(p)
     spectra = C.read_clean_spectra(p, meta)  # same order as meta
 
     mols = [molecule(s) for s in meta["smiles"]]
@@ -85,18 +130,23 @@ def main():
     fingerprints = [generator.GetFingerprint(mols[i]) for i in idx]
     keys = np.array([Chem.MolToInchiKey(mols[i])[:14] for i in idx])  # same 2D structure -> same key
     tanimoto = np.array([DataStructs.BulkTanimotoSimilarity(fp, fingerprints) for fp in fingerprints])
+    mhfp = mhfp_similarity([mols[i] for i in idx])
     n = len(idx)
-    rows.append(("unique structures", int(len(set(keys))), "first block of the InChIKey"))
+    n_structures = int(len(set(keys)))
+    enough = n_structures >= MIN_UNIQUE_STRUCTURES
+    rows += [
+        ("unique structures", n_structures, "first block of the InChIKey"),
+        ("B used for conclusions", "yes" if enough else "no",
+         f"needs >= {MIN_UNIQUE_STRUCTURES} unique structures"),
+    ]
 
-    # DreaMS similarity
+    # Spectral similarities
     e = emb[idx]
-    dreams = e @ e.T
-
-    # Binned spectrum cosine
+    scores = {"DreaMS": e @ e.T}
+    if ms2ds is not None:
+        m = ms2ds[idx]
+        scores["MS2DeepScore"] = m @ m.T
     binned_vectors = C.binned_vectors([spectra[i] for i in idx])
-    binned = binned_vectors @ binned_vectors.T
-
-    # Modified cosine (matchms), with the fragment tolerance of the GNPS job
     tolerance = fragment_tolerance(p)
     specs = []
     for i in idx:
@@ -107,17 +157,22 @@ def main():
             metadata={"precursor_mz": float(s["precursor_mz"])},
         ))
     print(f"Computing modified cosine for {n * (n - 1) // 2:,} pairs (tolerance {tolerance} Da)...")
-    modcos = ModifiedCosine(tolerance=tolerance).matrix(specs, specs, is_symmetric=True)["score"]
+    scores["modified cosine"] = ModifiedCosine(tolerance=tolerance).matrix(specs, specs, is_symmetric=True)["score"]
+    scores["binned spectrum cosine"] = binned_vectors @ binned_vectors.T
     rows.append(("fragment tolerance for modified cosine (Da)", tolerance, "taken from the GNPS job"))
 
-    scores = {"DreaMS": dreams, "modified cosine": modcos, "binned spectrum cosine": binned}
-
-    # 1. Correlation with structure over all pairs
+    # 1. Correlation with structure over all pairs (Morgan Tanimoto, then MHFP)
     iu = np.triu_indices(n, k=1)
     t = tanimoto[iu]
     rho = {name: spearmanr(t, s[iu]).correlation for name, s in scores.items()}
     for name in scores:
         rows.append((f"B1 Spearman (Tanimoto vs {name})", round(float(rho[name]), 3), f"{len(t):,} pairs"))
+    for name, s in scores.items():
+        rows.append((f"B1 Spearman (MHFP vs {name})", round(float(spearmanr(mhfp[iu], s[iu]).correlation), 3), "MHFP Jaccard"))
+    for other in [name for name in ("modified cosine", "MS2DeepScore") if name in scores]:
+        rows.append((f"B1 Spearman with Tanimoto, DreaMS minus {other} (95% CI)",
+                     C.ci_text(*spearman_difference_ci(tanimoto, scores["DreaMS"], scores[other], keys)),
+                     "resampling molecules"))
 
     # 2. Top-1 search: is the most similar spectrum also a similar molecule?
     self_mask = np.eye(n, dtype=bool)
@@ -134,9 +189,16 @@ def main():
             (f"B2 top-1 neighbour Tanimoto, {label}: random", round(random_level, 3), "chance level"),
             (f"B2 top-1 neighbour Tanimoto, {label}: best possible", round(best_level, 3), "upper limit"),
         ]
+        if label.startswith("other"):
+            dreams_values, ok = top1_values(scores["DreaMS"], tanimoto, blocked)
+            for other in [name for name in ("modified cosine", "MS2DeepScore") if name in scores]:
+                other_values, _ = top1_values(scores[other], tanimoto, blocked)
+                rows.append((f"B2 analog search, DreaMS minus {other} (95% CI)",
+                             C.ci_text(*C.bootstrap_mean_ci((dreams_values - other_values)[ok], keys[ok])),
+                             "resampling query molecules"))
 
     # Picture
-    fig, axes = plt.subplots(1, 3, figsize=(14, 4.2), sharey=True)
+    fig, axes = plt.subplots(1, len(scores), figsize=(4.7 * len(scores), 4.2), sharey=True)
     for ax, (name, s) in zip(axes, scores.items()):
         ax.hexbin(s[iu], t, gridsize=40, bins="log", cmap="viridis", mincnt=1)
         ax.set_xlabel(name)

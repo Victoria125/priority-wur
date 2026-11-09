@@ -79,13 +79,13 @@ def main():
     parser.add_argument("--net-k", type=int, default=3, help="neighbours per spectrum in the DreaMS network")
     parser.add_argument("--net-threshold", type=float, default=0.7, help="minimum DreaMS similarity for a network edge")
     parser.add_argument("--min-family-size", type=int, default=3)
-    parser.add_argument("--in-domain-only", action="store_true",
-                        help="only spectra that DreaMS's own format A check accepts")
+    parser.add_argument("--variant", default="protocol", choices=list(C.VARIANTS))
     args = parser.parse_args()
 
-    p = C.run_paths(args.run, args.in_domain_only)
+    p = C.run_paths(args.run, args.variant)
     p.results.mkdir(parents=True, exist_ok=True)
     meta, emb = C.load_metadata_and_embeddings(p)
+    ms2ds = C.load_ms2deepscore(p)
     n = len(meta)
     labels = C.family_labels(meta)
     sizes = meta["family_size"].to_numpy()
@@ -112,20 +112,33 @@ def main():
     rec_random = expected_hits / np.minimum(args.k, sizes[queries] - 1)
 
     rows += [
-        ("spectra used", n, "after the DreaMS quality rules"),
+        ("spectra used", n, f"variant: {p.variant}"),
         (f"spectra in GNPS families with >= {args.min_family_size} members", len(queries), "query spectra for A1"),
         (f"A1 family recovery@{args.k}: DreaMS", round(rec_dreams.mean(), 3), "1.0 = all family partners in the top k"),
         (f"A1 family recovery@{args.k}: binned spectrum cosine", round(rec_binned.mean(), 3), f"baseline, {C.BIN_WIDTH:g} Da bins"),
         (f"A1 family recovery@{args.k}: precursor m/z only", round(rec_mass.mean(), 3), "baseline"),
         (f"A1 family recovery@{args.k}: random", round(rec_random.mean(), 3), "chance level"),
     ]
+    # Differences with a 95% interval. Spectra of one family are resampled
+    # together, because they are not independent.
+    families = labels[queries]
+    rows.append(("A1 DreaMS minus binned cosine (95% CI)",
+                 C.ci_text(*C.bootstrap_mean_ci(rec_dreams - rec_binned, families)), "resampling GNPS families"))
+    if ms2ds is not None:
+        nn_ms2ds, _ = knn(lambda a, b: ms2ds[a:b] @ ms2ds.T, n, args.k)
+        rec_ms2ds = family_recovery(nn_ms2ds, labels, sizes, queries, args.k)
+        rows += [
+            (f"A1 family recovery@{args.k}: MS2DeepScore", round(rec_ms2ds.mean(), 3), "pre-trained MS2DeepScore"),
+            ("A1 DreaMS minus MS2DeepScore (95% CI)",
+             C.ci_text(*C.bootstrap_mean_ci(rec_dreams - rec_ms2ds, families)), "resampling GNPS families"),
+        ]
 
     # ------------------------------------------------------------------
     # A2. DreaMS similarity of GNPS network edges vs random pairs.
     # ------------------------------------------------------------------
     edges = pd.read_parquet(p.edges)
     ids = set(meta["cluster_index"])
-    edges = edges[edges["id1"].isin(ids) & edges["id2"].isin(ids)]  # needed with --in-domain-only
+    edges = edges[edges["id1"].isin(ids) & edges["id2"].isin(ids)]  # the file has the whole GNPS network
     row_of = pd.Series(meta["row"].to_numpy(), index=meta["cluster_index"].to_numpy())
     r1 = row_of.loc[edges["id1"]].to_numpy()
     r2 = row_of.loc[edges["id2"]].to_numpy()

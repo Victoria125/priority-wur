@@ -113,27 +113,39 @@ MIN_INTENSITY_AMPLITUDE = 20.0  # max intensity / min intensity
 BIN_WIDTH = 1.0
 
 
-def run_paths(run: str, in_domain_only: bool = False) -> SimpleNamespace:
-    """All files of one run.
+# Two versions of the input spectra of every run. Results folder per version.
+VARIANTS = {
+    # Main analysis. The DreaMS protocol: only spectra that pass DreaMS's own
+    # format A check, given to DreaMS exactly as GNPS gives them.
+    "protocol": "results",
+    # Sensitivity analysis. Our cleaning: peaks above the precursor are removed
+    # first, so it also keeps spectra that DreaMS's own check rejects.
+    "all_kept": "results_all_kept",
+}
 
-    in_domain_only: the experiments use only the spectra that DreaMS's own
-    format A check accepts (column in_dreams_domain) and write their results
-    to results_in_domain/ instead of results/.
-    """
+
+def run_paths(run: str, variant: str = "protocol") -> SimpleNamespace:
+    """All files of one run, for one version of the input spectra (see VARIANTS)."""
+    if variant not in VARIANTS:
+        raise ValueError(f"Unknown variant '{variant}'. Use one of {list(VARIANTS)}.")
     root = RUNS_DIR / run
     data = root / "data"
+    protocol = variant == "protocol"
+    tag = "_protocol" if protocol else ""
     return SimpleNamespace(
         name=run,
+        variant=variant,
         root=root,
         data=data,
-        results=root / ("results_in_domain" if in_domain_only else "results"),
-        in_domain_only=in_domain_only,
+        results=root / VARIANTS[variant],
         gnps=data / "gnps",
-        clean_mgf=data / "spectra_clean.mgf",
-        metadata=data / "spectra_metadata.parquet",
+        clean_mgf=data / ("spectra_protocol.mgf" if protocol else "spectra_clean.mgf"),
+        metadata=data / ("spectra_protocol_metadata.parquet" if protocol else "spectra_metadata.parquet"),
         edges=data / "gnps_edges.parquet",
-        embeddings=data / "dreams_embeddings.npy",
-        embeddings_info=data / "dreams_embeddings.json",
+        embeddings=data / f"dreams_embeddings{tag}.npy",
+        embeddings_info=data / f"dreams_embeddings{tag}.json",
+        ms2ds_embeddings=data / f"ms2deepscore_embeddings{tag}.npy",
+        ms2ds_info=data / f"ms2deepscore_embeddings{tag}.json",
         run_info=root / "results" / "run_info.json",
     )
 
@@ -375,6 +387,7 @@ def read_library_hits(path) -> pd.DataFrame:
 # Small helpers for the experiments
 # ---------------------------------------------------------------------------
 def load_metadata_and_embeddings(p: SimpleNamespace):
+    require_inputs(p)
     meta = pd.read_parquet(p.metadata)
     emb = np.load(p.embeddings).astype(np.float32)
     if len(meta) != len(emb):
@@ -383,17 +396,52 @@ def load_metadata_and_embeddings(p: SimpleNamespace):
             "Run the preparation and embedding steps again."
         )
     emb = emb / np.linalg.norm(emb, axis=1, keepdims=True)  # cosine = dot product now
-    # source_row = position in spectra_clean.mgf and in the embeddings file
+    # source_row = position in the MGF file and in the embeddings file
     meta = meta.assign(source_row=meta["row"])
-    if p.in_domain_only:
-        if "in_dreams_domain" not in meta:
-            raise SystemExit("No in_dreams_domain column. Run scripts/prepare_data.py again.")
-        keep = meta["in_dreams_domain"].to_numpy(dtype=bool)
-        if keep.sum() < 2:
-            raise SystemExit(f"Only {keep.sum()} spectra pass DreaMS's own format A check in {p.name}.")
-        meta = add_family_size(meta[keep].reset_index(drop=True).assign(row=lambda m: range(len(m))))
-        emb = emb[keep]
     return meta, emb
+
+
+def require_inputs(p: SimpleNamespace) -> None:
+    """Stop with a clear message if this run has no spectra for this variant."""
+    if not p.metadata.exists():
+        raise SystemExit(f"{p.name} has no spectra for the '{p.variant}' variant "
+                         "(none pass the rules, or prepare_data.py has not run).")
+    if not p.embeddings.exists():
+        raise SystemExit(f"No DreaMS embeddings for {p.name} ({p.variant}). Run embed_dreams.py first.")
+
+
+def load_ms2deepscore(p: SimpleNamespace):
+    """MS2DeepScore embeddings (unit length) in MGF order, or None if they are
+    missing or were computed for another version of the MGF file."""
+    if not (p.ms2ds_embeddings.exists() and p.ms2ds_info.exists()):
+        return None
+    if read_json(p.ms2ds_info).get("clean_mgf_md5") != md5sum(p.clean_mgf):
+        print(f"MS2DeepScore embeddings of {p.name} are out of date; skipped.")
+        return None
+    emb = np.load(p.ms2ds_embeddings).astype(np.float32)
+    return emb / np.linalg.norm(emb, axis=1, keepdims=True)
+
+
+def bootstrap_mean_ci(values, groups=None, n_boot=2000, seed=0):
+    """Mean and 95% interval of `values` by bootstrap. With `groups`, whole groups
+    are resampled (for example all spectra of one GNPS family together), because
+    values of the same group are not independent."""
+    values = np.asarray(values, dtype=float)
+    rng = np.random.default_rng(seed)
+    if groups is None:
+        groups = np.arange(len(values))
+    groups = np.asarray(groups)
+    unique, inverse = np.unique(groups, return_inverse=True)
+    sums = np.bincount(inverse, weights=values, minlength=len(unique))
+    counts = np.bincount(inverse, minlength=len(unique)).astype(float)
+    draws = rng.integers(0, len(unique), size=(n_boot, len(unique)))
+    means = sums[draws].sum(axis=1) / counts[draws].sum(axis=1)
+    low, high = np.percentile(means, [2.5, 97.5])
+    return float(values.mean()), float(low), float(high)
+
+
+def ci_text(mean, low, high) -> str:
+    return f"{mean:+.3f} [{low:+.3f}, {high:+.3f}]"
 
 
 def add_family_size(meta: pd.DataFrame) -> pd.DataFrame:
@@ -408,7 +456,7 @@ def add_family_size(meta: pd.DataFrame) -> pd.DataFrame:
 
 
 def read_clean_spectra(p: SimpleNamespace, meta: pd.DataFrame) -> list:
-    """The cleaned spectra in the same order as meta (also after in_domain_only)."""
+    """The spectra of this variant's MGF file, in the same order as meta."""
     spectra = read_mgf(p.clean_mgf)
     return [spectra[i] for i in meta["source_row"]]
 

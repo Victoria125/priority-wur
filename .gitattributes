@@ -1,0 +1,3 @@
+# MGF files are hashed (md5) to know if the embeddings are up to date,
+# so Git must never change their line endings.
+*.mgf -text

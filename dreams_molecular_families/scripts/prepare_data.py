@@ -120,57 +120,64 @@ def main():
     print(f"Checked: the {n_nodes:,} spectra with peaks are the network nodes, "
           "and edges and library hits point to them.")
 
-    # 1. Clean every spectrum and keep the ones that follow DreaMS format A.
-    kept, in_domain, reasons, seen = [], [], Counter(), set()
+    # 1. Two versions of the input (see common.VARIANTS):
+    #    all_kept: our cleaning, then the DreaMS format A rules;
+    #    protocol: the spectra that pass DreaMS's own check, unchanged.
+    kept, in_domain, protocol, reasons, seen = [], [], [], Counter(), set()
     for spec in spectra:
         if spec["scans"] in seen:
             reasons["duplicate cluster id"] += 1
             continue
         seen.add(spec["scans"])
+        dreams_ok = len(spec["mz"]) > 0 and passes_dreams_check(spec)
+        if dreams_ok:
+            protocol.append(spec)
         cleaned, problem = C.clean_and_check(spec)
         if problem:
             reasons[problem] += 1
         else:
             kept.append(cleaned)
-            in_domain.append(passes_dreams_check(spec))
-    if not kept:
+            in_domain.append(dreams_ok)
+    if not kept and not protocol:
         raise SystemExit("No spectrum passed the quality rules. Check the input data.")
 
-    # 2. One metadata row per kept spectrum, in the same order as the MGF file.
-    meta = pd.DataFrame({
-        "row": range(len(kept)),
-        "cluster_index": [s["scans"] for s in kept],
-        "precursor_mz": [s["precursor_mz"] for s in kept],
-        "charge_in_gnps": [s["charge"] for s in kept],
-        "n_peaks": [len(s["mz"]) for s in kept],
-        "in_dreams_domain": in_domain,
-    })
-    meta = meta.merge(nodes, on="cluster_index", how="left")
-    meta["gnps_family"] = meta["gnps_family"].fillna(-1).astype(int)
-    meta = meta.merge(library, on="cluster_index", how="left")
-
-    # Family size counted among the kept spectra only (see common.add_family_size).
-    meta = C.add_family_size(meta).sort_values("row").reset_index(drop=True)
-
-    # 3. Keep only network edges between kept spectra.
-    kept_ids = set(meta["cluster_index"])
-    edges = edges[edges["id1"].isin(kept_ids) & edges["id2"].isin(kept_ids)]
-
-    # 4. Write everything.
-    C.write_mgf(kept, p.clean_mgf)
-    meta.to_parquet(p.metadata, index=False)
+    # 2. One metadata table per version, in the same order as its MGF file.
+    #    All network edges are saved; the experiments keep the ones they need.
     edges.to_parquet(p.edges, index=False)
+    info_variants = {}
+    for variant, chosen in [("all_kept", kept), ("protocol", protocol)]:
+        pv = C.run_paths(args.run, variant)
+        if not chosen:
+            for old in (pv.clean_mgf, pv.metadata):
+                old.unlink(missing_ok=True)
+            print(f"No spectra for the {variant} variant.")
+            info_variants[variant] = {"spectra": 0}
+            continue
+        meta = spectra_table(chosen, nodes, library)
+        if variant == "all_kept":
+            meta["in_dreams_domain"] = in_domain
+        C.write_mgf(chosen, pv.clean_mgf)
+        meta.to_parquet(pv.metadata, index=False)
+        ids = set(meta["cluster_index"])
+        info_variants[variant] = {
+            "spectra": len(meta),
+            "spectra in a GNPS family (size >= 2)": int((meta["family_size"] >= 2).sum()),
+            "GNPS families (size >= 2)": int(meta.loc[meta["family_size"] >= 2, "gnps_family"].nunique()),
+            "GNPS edges between these spectra": int((edges["id1"].isin(ids) & edges["id2"].isin(ids)).sum()),
+            "library hits with a structure (SMILES)": int(meta["smiles"].notna().sum()),
+            "MGF md5": C.md5sum(pv.clean_mgf),
+        }
 
     report = pd.DataFrame(
         [("read from GNPS", len(spectra))]
         + [(f"removed: {reason}", n) for reason, n in reasons.most_common()]
-        + [("kept for DreaMS", len(kept))],
+        + [("kept by our cleaning (all_kept)", len(kept)),
+           ("pass DreaMS's own check, unchanged (protocol)", len(protocol))],
         columns=["step", "spectra"],
     )
     report.to_parquet(p.results / "00_filter_report.parquet", index=False)
 
     spec = C.RUNS.get(args.run, {})
-    n_families = meta.loc[meta["family_size"] >= 2, "gnps_family"].nunique()
     info = {
         "run": args.run,
         "dataset": spec.get("label", ""),
@@ -185,23 +192,34 @@ def main():
         "spectra read": len(spectra),
         # Some GNPS jobs list every input scan, most of them without peaks.
         # The spectra with peaks are the real input (the network nodes).
-        "spectra with peaks": len(spectra) - reasons["empty spectrum (no peaks at all)"],
-        "spectra kept": len(meta),
-        "spectra kept that pass DreaMS's own check": int(meta["in_dreams_domain"].sum()),
-        "spectra in a GNPS family (size >= 2)": int((meta["family_size"] >= 2).sum()),
-        "GNPS families (size >= 2)": int(n_families),
-        "GNPS edges between kept spectra": len(edges),
-        "spectra with a GNPS library hit": int(meta["compound_name"].notna().sum()),
-        "library hits with a structure (SMILES)": int(meta["smiles"].notna().sum()),
-        "clean MGF md5": C.md5sum(p.clean_mgf),
+        "spectra with peaks": n_nodes,
+        "GNPS network edges": len(edges),
     }
+    for variant, values in info_variants.items():
+        for key, value in values.items():
+            info[f"{key} ({variant})"] = value
     C.write_json(info, p.run_info)
 
     print(report.to_string(index=False))
     print()
     for key, value in info.items():
         print(f"{key}: {value}")
-    print(f"\nWrote {p.clean_mgf.name}, {p.metadata.name} and {p.edges.name} in {p.data}")
+
+
+def spectra_table(spectra, nodes, library) -> pd.DataFrame:
+    """One row per spectrum, in MGF order, with its GNPS family and library hit."""
+    meta = pd.DataFrame({
+        "row": range(len(spectra)),
+        "cluster_index": [s["scans"] for s in spectra],
+        "precursor_mz": [s["precursor_mz"] for s in spectra],
+        "charge_in_gnps": [s["charge"] for s in spectra],
+        "n_peaks": [len(s["mz"]) for s in spectra],
+    })
+    meta = meta.merge(nodes, on="cluster_index", how="left")
+    meta["gnps_family"] = meta["gnps_family"].fillna(-1).astype(int)
+    meta = meta.merge(library, on="cluster_index", how="left")
+    # Family size counted among these spectra only (see common.add_family_size).
+    return C.add_family_size(meta).sort_values("row").reset_index(drop=True)
 
 
 if __name__ == "__main__":

@@ -11,12 +11,12 @@
   "min matched peaks for GNPS edges": "6",
   "spectra read": 433081,
   "spectra with peaks": 2834,
-  "spectra kept": 1973,
-  "spectra kept that pass DreaMS's own check": 0,
-  "spectra in a GNPS family (size >= 2)": 887,
-  "GNPS families (size >= 2)": 148,
-  "GNPS edges between kept spectra": 1695,
-  "spectra with a GNPS library hit": 105,
-  "library hits with a structure (SMILES)": 38,
-  "clean MGF md5": "66919e49a60f690f887701b1ff30aba9"
+  "GNPS network edges": 2542,
+  "spectra (all_kept)": 1973,
+  "spectra in a GNPS family (size >= 2) (all_kept)": 887,
+  "GNPS families (size >= 2) (all_kept)": 148,
+  "GNPS edges between these spectra (all_kept)": 1695,
+  "library hits with a structure (SMILES) (all_kept)": 38,
+  "MGF md5 (all_kept)": "66919e49a60f690f887701b1ff30aba9",
+  "spectra (protocol)": 0
 }

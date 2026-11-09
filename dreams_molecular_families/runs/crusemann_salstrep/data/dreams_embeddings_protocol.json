@@ -1,0 +1,16 @@
+{
+  "clean_mgf_md5": "4c46058a805d9578feadf07218f9014c",
+  "shape": [
+    3445,
+    1024
+  ],
+  "model": "DreaMS_embedding (pre-trained, no fine-tuning)",
+  "dreams_commit": "dbec3a0b514a99e5056cfccde4559fda8cfe8129",
+  "device": "CPU",
+  "seconds": 206,
+  "computed": 702,
+  "reused from variant": "all_kept",
+  "reused (identical spectra)": 2743,
+  "computed_on": "2026-11-09T21:35:02",
+  "machine": "Windows-10-10.0.26200-SP0"
+}

@@ -1,0 +1,11 @@
+{
+  "clean_mgf_md5": "4c46058a805d9578feadf07218f9014c",
+  "shape": [
+    3445,
+    500
+  ],
+  "model": "MS2DeepScore pre-trained (Zenodo 17826815)",
+  "ms2deepscore_version": "2.11.0",
+  "seconds": 12,
+  "computed_on": "2026-11-09T17:07:28"
+}
