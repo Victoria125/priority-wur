@@ -44,6 +44,9 @@ RUNS = {
         "task_id": "c22f44b14a3d450eb836d607cb9521bb",
         "massive": "MSV000079284",
         "label": "Salinispora, Duncan et al. 2015",
+        # The job reads its spectra from MSV000079484, a second deposit of the same
+        # study; all 50 file names are also in MSV000079284 (scripts/check_provenance.py).
+        "sources": ["MSV000079284", "MSV000079484"],
         # A copy of this job is stored in the NPLinker GitHub repository (it is
         # the example job of the NPLinker docs). The link is pinned to one commit.
         "fallback_url": (
@@ -56,7 +59,10 @@ RUNS = {
     "crusemann_salstrep": {
         "task_id": "9360fa514804487a9d39b7e7d7e6d514",
         "massive": "MSV000078836",
-        "label": "Salinispora + Streptomyces, Crüsemann et al. 2017",
+        "label": "Salinispora (MSV000078836) + Streptomyces (MSV000078839), Crüsemann et al. 2017",
+        # Salinispora files were uploaded from the submitter's GNPS workspace (their
+        # names match MSV000078836); Streptomyces files come from MSV000078839.
+        "sources": ["MSV000078836", "MSV000078839"],
     },
     "crusemann_streptomyces": {
         "task_id": "840eadb054f74d74ae42152a08ed9628",
@@ -112,6 +118,9 @@ MIN_INTENSITY_AMPLITUDE = 20.0  # max intensity / min intensity
 # Binned spectrum baseline: 1 Da bins up to m/z 1000, square-root intensities.
 BIN_WIDTH = 1.0
 
+# Peaks given to every method (see top_peaks).
+INPUT_PEAKS = 100
+
 
 # Two versions of the input spectra of every run. Results folder per version.
 VARIANTS = {
@@ -146,7 +155,10 @@ def run_paths(run: str, variant: str = "protocol") -> SimpleNamespace:
         embeddings_info=data / f"dreams_embeddings{tag}.json",
         ms2ds_embeddings=data / f"ms2deepscore_embeddings{tag}.npy",
         ms2ds_info=data / f"ms2deepscore_embeddings{tag}.json",
-        run_info=root / "results" / "run_info.json",
+        # Files about the run itself (both variants) live next to data/, not in a results folder.
+        run_info=root / "run_info.json",
+        input_report=root / "input_report.parquet",
+        provenance=root / "provenance.json",
     )
 
 
@@ -315,7 +327,8 @@ def write_mgf(spectra, path) -> None:
             f.write(f"TITLE=cluster_{s['scans']}\n")
             f.write(f"SCANS={s['scans']}\n")
             f.write(f"PEPMASS={s['precursor_mz']:.5f}\n")
-            f.write("CHARGE=1+\n")
+            if s.get("charge"):  # the charge GNPS gives; no line when it is unknown (0)
+                f.write(f"CHARGE={abs(s['charge'])}{'+' if s['charge'] > 0 else '-'}\n")
             for mz, intensity in zip(s["mz"], s["intensity"]):
                 f.write(f"{mz:.5f} {intensity:.6g}\n")
             f.write("END IONS\n\n")
@@ -371,13 +384,17 @@ def read_edges(path) -> pd.DataFrame:
 
 
 def read_library_hits(path) -> pd.DataFrame:
-    columns = ["cluster_index", "compound_name", "smiles", "inchi", "library_score", "shared_peaks"]
+    """Best GNPS library hit per spectrum, with what annotations.py needs to check it
+    (adduct, mass difference between query and library precursor, library precursor m/z)."""
+    columns = ["cluster_index", "compound_name", "smiles", "inchi", "library_score", "shared_peaks",
+               "adduct", "mass_diff", "library_mz", "query_mz"]
     if path is None or not Path(path).exists():
         return pd.DataFrame(columns=columns)
     lib = pd.read_csv(path, sep="\t", low_memory=False)
     lib = lib.rename(columns={
         "#Scan#": "cluster_index", "Compound_Name": "compound_name", "Smiles": "smiles",
         "INCHI": "inchi", "MQScore": "library_score", "SharedPeaks": "shared_peaks",
+        "Adduct": "adduct", "MassDiff": "mass_diff", "LibMZ": "library_mz", "SpecMZ": "query_mz",
     })
     lib = lib.sort_values("library_score", ascending=False).drop_duplicates("cluster_index")
     return lib[[c for c in columns if c in lib.columns]]
@@ -413,13 +430,43 @@ def require_inputs(p: SimpleNamespace) -> None:
 def load_ms2deepscore(p: SimpleNamespace):
     """MS2DeepScore embeddings (unit length) in MGF order, or None if they are
     missing or were computed for another version of the MGF file."""
-    if not (p.ms2ds_embeddings.exists() and p.ms2ds_info.exists()):
+    if not p.ms2ds_embeddings.exists():
         return None
-    if read_json(p.ms2ds_info).get("clean_mgf_md5") != md5sum(p.clean_mgf):
+    if not embeddings_up_to_date(p.ms2ds_info, p.clean_mgf):
         print(f"MS2DeepScore embeddings of {p.name} are out of date; skipped.")
         return None
     emb = np.load(p.ms2ds_embeddings).astype(np.float32)
     return emb / np.linalg.norm(emb, axis=1, keepdims=True)
+
+
+def spectra_fingerprint(path) -> str:
+    """md5 of what the embedding models read from an MGF file: cluster id,
+    precursor m/z and peaks of every spectrum, in order. The charge line is left
+    out on purpose: neither DreaMS nor MS2DeepScore uses it."""
+    h = hashlib.md5()
+    for s in read_mgf(path):
+        h.update(f"{s['scans']}|{s['precursor_mz']:.5f}|".encode())
+        h.update(np.asarray(s["mz"], dtype=np.float64).tobytes())
+        h.update(np.asarray(s["intensity"], dtype=np.float64).tobytes())
+    return h.hexdigest()
+
+
+def embeddings_up_to_date(info_path, mgf_path) -> bool:
+    """True if the embeddings described by info_path were computed from these spectra."""
+    if not (Path(info_path).exists() and Path(mgf_path).exists()):
+        return False
+    return read_json(info_path).get("spectra_fingerprint") == spectra_fingerprint(mgf_path)
+
+
+def top_peaks(spec, k=None):
+    """The k most intense peaks of a spectrum, in m/z order. DreaMS's embedding
+    model keeps the 100 most intense peaks (PreTrainedModel, n_highest_peaks=100),
+    so every other method gets exactly the same peaks."""
+    k = k or INPUT_PEAKS
+    if len(spec["mz"]) <= k:
+        return spec
+    keep = np.sort(np.argsort(spec["intensity"], kind="stable")[-k:])
+    return dict(spec, mz=spec["mz"][keep], intensity=spec["intensity"][keep])
 
 
 def bootstrap_mean_ci(values, groups=None, n_boot=2000, seed=0):

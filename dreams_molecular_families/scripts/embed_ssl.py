@@ -41,7 +41,7 @@ def main():
     if not p.clean_mgf.exists():
         raise SystemExit(f"{args.run} has no protocol spectra. Nothing to embed.")
     emb_path, info_path = output_paths(p, args.name)
-    mgf_md5 = C.md5sum(p.clean_mgf)
+    fingerprint = C.spectra_fingerprint(p.clean_mgf)
     ckpt = args.ckpt
     if args.name == "dreams_ssl" and ckpt is None:
         from dreams import utils
@@ -53,7 +53,7 @@ def main():
         raise SystemExit(f"Checkpoint not found: {ckpt}")
     if emb_path.exists() and info_path.exists():
         info = C.read_json(info_path)
-        if info.get("clean_mgf_md5") == mgf_md5 and info.get("ckpt_md5") == C.md5sum(ckpt):
+        if info.get("spectra_fingerprint") == fingerprint and info.get("ckpt_md5") == C.md5sum(ckpt):
             print(f"{emb_path.name} is up to date for {args.run}. Nothing to do.")
             return
 
@@ -71,7 +71,7 @@ def main():
 
     np.save(emb_path, embeddings)
     C.write_json({
-        "clean_mgf_md5": mgf_md5, "ckpt": str(ckpt), "ckpt_md5": C.md5sum(ckpt),
+        "spectra_fingerprint": fingerprint, "ckpt": str(ckpt), "ckpt_md5": C.md5sum(ckpt),
         "representation": "precursor token, last transformer layer (dreams_intermediates)",
         "shape": list(embeddings.shape), "seconds": round(seconds),
         "computed_on": datetime.now().isoformat(timespec="seconds"),

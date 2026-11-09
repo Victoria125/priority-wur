@@ -3,8 +3,9 @@
 Run this script with the Python of the DreaMS environment (Python 3.11).
 The first run downloads the DreaMS model weights from Hugging Face.
 
-If the embeddings already exist for exactly the same cleaned MGF file,
-nothing is computed again (use --force to recompute).
+If the embeddings already exist for exactly the same spectra (same
+spectra fingerprint, see common.spectra_fingerprint), nothing is computed
+again (use --force to recompute).
 """
 import argparse
 import platform
@@ -29,7 +30,7 @@ def reusable_embeddings(run, variant, spectra):
     q = C.run_paths(run, variant)
     if not (q.embeddings.exists() and q.embeddings_info.exists() and q.clean_mgf.exists()):
         return {}
-    if C.read_json(q.embeddings_info).get("clean_mgf_md5") != C.md5sum(q.clean_mgf):
+    if not C.embeddings_up_to_date(q.embeddings_info, q.clean_mgf):
         return {}
     row_of = {spectrum_key(s): j for j, s in enumerate(C.read_mgf(q.clean_mgf))}
     other = np.load(q.embeddings)
@@ -49,11 +50,10 @@ def main():
     p = C.run_paths(args.run, args.variant)
     if not p.clean_mgf.exists():
         raise SystemExit(f"{args.run} has no spectra for the '{args.variant}' variant. Nothing to embed.")
-    mgf_md5 = C.md5sum(p.clean_mgf)
-    if not args.force and p.embeddings.exists() and p.embeddings_info.exists():
-        if C.read_json(p.embeddings_info).get("clean_mgf_md5") == mgf_md5:
-            print(f"{p.embeddings.name} is up to date for {args.run}. Nothing to do.")
-            return
+    fingerprint = C.spectra_fingerprint(p.clean_mgf)
+    if not args.force and p.embeddings.exists() and C.embeddings_up_to_date(p.embeddings_info, p.clean_mgf):
+        print(f"{p.embeddings.name} is up to date for {args.run}. Nothing to do.")
+        return
 
     import torch
     from dreams.api import dreams_embeddings
@@ -93,7 +93,8 @@ def main():
 
     np.save(p.embeddings, embeddings)
     C.write_json({
-        "clean_mgf_md5": mgf_md5,
+        "clean_mgf_md5": C.md5sum(p.clean_mgf),
+        "spectra_fingerprint": fingerprint,
         "shape": list(embeddings.shape),
         "model": "DreaMS_embedding (pre-trained, no fine-tuning)",
         "dreams_commit": C.DREAMS_COMMIT,

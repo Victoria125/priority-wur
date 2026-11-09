@@ -104,7 +104,6 @@ def main():
 
     p = C.run_paths(args.run)
     p.data.mkdir(parents=True, exist_ok=True)
-    p.results.mkdir(parents=True, exist_ok=True)
 
     archive = get_archive(p, args.task_id, args.zip)
     paths = C.extract_gnps_archive(archive, p.gnps)
@@ -161,6 +160,7 @@ def main():
         ids = set(meta["cluster_index"])
         info_variants[variant] = {
             "spectra": len(meta),
+            "spectra with unknown charge in GNPS": int(sum(not s["charge"] for s in chosen)),
             "spectra in a GNPS family (size >= 2)": int((meta["family_size"] >= 2).sum()),
             "GNPS families (size >= 2)": int(meta.loc[meta["family_size"] >= 2, "gnps_family"].nunique()),
             "GNPS edges between these spectra": int((edges["id1"].isin(ids) & edges["id2"].isin(ids)).sum()),
@@ -175,7 +175,7 @@ def main():
            ("pass DreaMS's own check, unchanged (protocol)", len(protocol))],
         columns=["step", "spectra"],
     )
-    report.to_parquet(p.results / "00_filter_report.parquet", index=False)
+    report.to_parquet(p.input_report, index=False)
 
     spec = C.RUNS.get(args.run, {})
     info = {
