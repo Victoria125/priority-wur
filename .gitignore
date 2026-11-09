@@ -10,3 +10,4 @@ logs/
 *.gbff
 __pycache__/
 .venv/
+.vscode/

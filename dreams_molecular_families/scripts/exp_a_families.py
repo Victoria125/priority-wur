@@ -79,9 +79,12 @@ def main():
     parser.add_argument("--net-k", type=int, default=3, help="neighbours per spectrum in the DreaMS network")
     parser.add_argument("--net-threshold", type=float, default=0.7, help="minimum DreaMS similarity for a network edge")
     parser.add_argument("--min-family-size", type=int, default=3)
+    parser.add_argument("--in-domain-only", action="store_true",
+                        help="only spectra that DreaMS's own format A check accepts")
     args = parser.parse_args()
 
-    p = C.run_paths(args.run)
+    p = C.run_paths(args.run, args.in_domain_only)
+    p.results.mkdir(parents=True, exist_ok=True)
     meta, emb = C.load_metadata_and_embeddings(p)
     n = len(meta)
     labels = C.family_labels(meta)
@@ -99,7 +102,7 @@ def main():
     # Baseline 1: neighbours chosen only by precursor m/z (closest masses).
     nn_mass, _ = knn(lambda a, b: -np.abs(pmz[a:b, None] - pmz[None, :]), n, args.k)
     # Baseline 2: cosine of binned spectra (a spectral score without learning).
-    binned = C.binned_vectors(C.read_mgf(p.clean_mgf))
+    binned = C.binned_vectors(C.read_clean_spectra(p, meta))
     nn_binned, _ = knn(lambda a, b: binned[a:b] @ binned.T, n, args.k)
 
     rec_dreams = family_recovery(nn_dreams, labels, sizes, queries, args.k)
@@ -121,6 +124,8 @@ def main():
     # A2. DreaMS similarity of GNPS network edges vs random pairs.
     # ------------------------------------------------------------------
     edges = pd.read_parquet(p.edges)
+    ids = set(meta["cluster_index"])
+    edges = edges[edges["id1"].isin(ids) & edges["id2"].isin(ids)]  # needed with --in-domain-only
     row_of = pd.Series(meta["row"].to_numpy(), index=meta["cluster_index"].to_numpy())
     r1 = row_of.loc[edges["id1"]].to_numpy()
     r2 = row_of.loc[edges["id2"]].to_numpy()

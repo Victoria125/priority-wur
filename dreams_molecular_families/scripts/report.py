@@ -34,7 +34,8 @@ KEY_METRICS = [
 DATASET_ROWS = [
     "dataset", "MassIVE dataset (PoDP)", "GNPS task", "GNPS workflow",
     "fragment tolerance used by GNPS (Da)", "min cosine for GNPS edges",
-    "spectra read", "spectra kept", "spectra in a GNPS family (size >= 2)",
+    "spectra with peaks", "spectra kept", "share kept", "spectra kept that pass DreaMS's own check",
+    "spectra in a GNPS family (size >= 2)",
     "GNPS families (size >= 2)", "GNPS edges between kept spectra",
     "library hits with a structure (SMILES)",
 ]
@@ -53,9 +54,16 @@ def load_run(run):
     if not p.run_info.exists():
         return None
     out = {"paths": p, "info": C.read_json(p.run_info)}
+    info = out["info"]
+    if info.get("spectra with peaks"):
+        info["share kept"] = f"{info['spectra kept'] / info['spectra with peaks']:.0%}"
     for name in ["exp_a_summary", "exp_b_summary", "exp_a_network_sweep", "00_filter_report"]:
         path = p.results / f"{name}.parquet"
         out[name] = pd.read_parquet(path) if path.exists() else None
+    in_domain = C.run_paths(run, in_domain_only=True).results
+    for name in ["exp_a_summary", "exp_b_summary"]:
+        path = in_domain / f"{name}.parquet"
+        out[f"{name}_in_domain"] = pd.read_parquet(path) if path.exists() else None
     if p.embeddings_info.exists():
         out["embeddings"] = C.read_json(p.embeddings_info)
     return out
@@ -99,6 +107,18 @@ def main():
         "",
         markdown(pd.DataFrame(
             {r: [metric(v[f"{f}_summary"], prefix) for _, f, prefix in KEY_METRICS] for r, v in runs.items()},
+            index=[label for label, _, _ in KEY_METRICS],
+        ).reset_index(names="")),
+        "",
+        "## Main numbers, only spectra that DreaMS's own rules accept",
+        "",
+        "Our cleaning removes the peaks above the precursor before checking the DreaMS format A rules, "
+        "so it keeps some spectra that DreaMS's own check (`DataFormatA().val_spec` on the spectrum as GNPS "
+        "gives it) would reject. Here the experiments use only the spectra that pass DreaMS's own check "
+        "(`--in-domain-only`). Empty: too few spectra left.",
+        "",
+        markdown(pd.DataFrame(
+            {r: [metric(v[f"{f}_summary_in_domain"], prefix) for _, f, prefix in KEY_METRICS] for r, v in runs.items()},
             index=[label for label, _, _ in KEY_METRICS],
         ).reset_index(names="")),
         "",

@@ -61,12 +61,14 @@ def main():
     parser.add_argument("--run", required=True, help="name of the run (see common.RUNS)")
     parser.add_argument("--min-library-score", type=float, default=0.0,
                         help="only use library hits with at least this GNPS score (MQScore)")
+    parser.add_argument("--in-domain-only", action="store_true",
+                        help="only spectra that DreaMS's own format A check accepts")
     args = parser.parse_args()
 
-    p = C.run_paths(args.run)
+    p = C.run_paths(args.run, args.in_domain_only)
+    p.results.mkdir(parents=True, exist_ok=True)
     meta, emb = C.load_metadata_and_embeddings(p)
-    spectra = C.read_mgf(p.clean_mgf)  # same order as meta
-    assert len(spectra) == len(meta)
+    spectra = C.read_clean_spectra(p, meta)  # same order as meta
 
     mols = [molecule(s) for s in meta["smiles"]]
     score_ok = meta["library_score"].fillna(-1).to_numpy() >= args.min_library_score

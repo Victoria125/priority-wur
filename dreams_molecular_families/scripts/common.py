@@ -63,6 +63,22 @@ RUNS = {
         "massive": "MSV000078839",
         "label": "Streptomyces, Crüsemann et al. 2017",
     },
+    # High-resolution jobs (GNPS fragment tolerance 0.01-0.02 Da instead of 0.3-0.5 Da).
+    "chevrette_insect": {
+        "task_id": "927974dc1fe640d081b1467464815efa",
+        "massive": "MSV000084723",
+        "label": "Insect-associated actinobacteria, Chevrette et al. 2019",
+    },
+    "dorrestein_salbus": {
+        "task_id": "7e463ca89a7c41958a0d0b993ee52131",
+        "massive": "MSV000079519",
+        "label": "Streptomyces albus J1074, Dorrestein lab",
+    },
+    "tahlan_streptomyces": {
+        "task_id": "b5eb34985777438aaf0f87e31889384c",
+        "massive": "MSV000083835",
+        "label": "Clavulanic acid producing Streptomyces, Tahlan lab",
+    },
 }
 
 # For any other GNPS classic job (same URLs that NPLinker uses).
@@ -97,22 +113,28 @@ MIN_INTENSITY_AMPLITUDE = 20.0  # max intensity / min intensity
 BIN_WIDTH = 1.0
 
 
-def run_paths(run: str) -> SimpleNamespace:
-    """All files of one run."""
+def run_paths(run: str, in_domain_only: bool = False) -> SimpleNamespace:
+    """All files of one run.
+
+    in_domain_only: the experiments use only the spectra that DreaMS's own
+    format A check accepts (column in_dreams_domain) and write their results
+    to results_in_domain/ instead of results/.
+    """
     root = RUNS_DIR / run
-    data, results = root / "data", root / "results"
+    data = root / "data"
     return SimpleNamespace(
         name=run,
         root=root,
         data=data,
-        results=results,
+        results=root / ("results_in_domain" if in_domain_only else "results"),
+        in_domain_only=in_domain_only,
         gnps=data / "gnps",
         clean_mgf=data / "spectra_clean.mgf",
         metadata=data / "spectra_metadata.parquet",
         edges=data / "gnps_edges.parquet",
         embeddings=data / "dreams_embeddings.npy",
         embeddings_info=data / "dreams_embeddings.json",
-        run_info=results / "run_info.json",
+        run_info=root / "results" / "run_info.json",
     )
 
 
@@ -361,7 +383,34 @@ def load_metadata_and_embeddings(p: SimpleNamespace):
             "Run the preparation and embedding steps again."
         )
     emb = emb / np.linalg.norm(emb, axis=1, keepdims=True)  # cosine = dot product now
+    # source_row = position in spectra_clean.mgf and in the embeddings file
+    meta = meta.assign(source_row=meta["row"])
+    if p.in_domain_only:
+        if "in_dreams_domain" not in meta:
+            raise SystemExit("No in_dreams_domain column. Run scripts/prepare_data.py again.")
+        keep = meta["in_dreams_domain"].to_numpy(dtype=bool)
+        if keep.sum() < 2:
+            raise SystemExit(f"Only {keep.sum()} spectra pass DreaMS's own format A check in {p.name}.")
+        meta = add_family_size(meta[keep].reset_index(drop=True).assign(row=lambda m: range(len(m))))
+        emb = emb[keep]
     return meta, emb
+
+
+def add_family_size(meta: pd.DataFrame) -> pd.DataFrame:
+    """Size of each spectrum's GNPS family, counted among the spectra in meta only.
+    A GNPS family that keeps only one spectrum behaves like a singleton."""
+    meta = meta.copy()
+    in_family = meta["gnps_family"] >= 0
+    meta["family_size"] = 1
+    counts = meta.loc[in_family, "gnps_family"].map(meta.loc[in_family, "gnps_family"].value_counts())
+    meta.loc[in_family, "family_size"] = counts.astype(int)
+    return meta
+
+
+def read_clean_spectra(p: SimpleNamespace, meta: pd.DataFrame) -> list:
+    """The cleaned spectra in the same order as meta (also after in_domain_only)."""
+    spectra = read_mgf(p.clean_mgf)
+    return [spectra[i] for i in meta["source_row"]]
 
 
 def binned_vectors(spectra, bin_width=BIN_WIDTH, max_mz=MAX_FRAGMENT_MZ) -> np.ndarray:

@@ -10,9 +10,25 @@ import argparse
 from collections import Counter
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
+from dreams.utils.dformats import DataFormatA
 
 import common as C
+
+DREAMS_FORMAT_A = DataFormatA()
+
+
+def passes_dreams_check(spec) -> bool:
+    """DreaMS's own format A check, on the spectrum as GNPS gives it.
+
+    Our cleaning first removes the peaks above the precursor, so it keeps some
+    spectra that DreaMS itself would reject (for example old ion trap data with
+    noise up to m/z 2000). This flag tells them apart."""
+    peaks = np.vstack([spec["mz"], spec["intensity"]])
+    charge = spec["charge"] or None  # 0 = unknown, DreaMS then skips the charge check
+    with np.errstate(divide="ignore"):
+        return DREAMS_FORMAT_A.val_spec(peaks, spec["precursor_mz"], charge=charge) is True
 
 
 def get_archive(p, task_id: str | None, zip_path: str | None) -> Path:
@@ -56,6 +72,29 @@ def get_archive(p, task_id: str | None, zip_path: str | None) -> Path:
     )
 
 
+def check_gnps_job(spectra, nodes, edges, library) -> int:
+    """Stop if the files of the GNPS job do not agree with each other.
+
+    In every job checked so far, the spectra with peaks are exactly the nodes of
+    the network, and edges and library hits only point to nodes. If that is not
+    true, the counts in RESULTS.md would be wrong, so we stop here."""
+    with_peaks = {s["scans"] for s in spectra if len(s["mz"]) > 0}
+    node_ids = set(nodes["cluster_index"])
+    problems = []
+    if with_peaks != node_ids:
+        problems.append(f"{len(with_peaks - node_ids):,} spectra with peaks are not network nodes and "
+                        f"{len(node_ids - with_peaks):,} nodes have no spectrum with peaks")
+    bad_edges = int((~edges["id1"].isin(node_ids) | ~edges["id2"].isin(node_ids)).sum())
+    if bad_edges:
+        problems.append(f"{bad_edges:,} network edges point to unknown nodes")
+    bad_hits = int((~library["cluster_index"].isin(node_ids)).sum())
+    if bad_hits:
+        problems.append(f"{bad_hits:,} library hits point to unknown nodes")
+    if problems:
+        raise SystemExit("The files of this GNPS job do not agree:\n  - " + "\n  - ".join(problems))
+    return len(node_ids)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--run", required=True, help="name of the run (see common.RUNS)")
@@ -77,9 +116,12 @@ def main():
     library = C.read_library_hits(paths.get("library"))
     print(f"Read {len(spectra):,} spectra, {len(edges):,} network edges, "
           f"{len(library):,} library hits.")
+    n_nodes = check_gnps_job(spectra, nodes, edges, library)
+    print(f"Checked: the {n_nodes:,} spectra with peaks are the network nodes, "
+          "and edges and library hits point to them.")
 
     # 1. Clean every spectrum and keep the ones that follow DreaMS format A.
-    kept, reasons, seen = [], Counter(), set()
+    kept, in_domain, reasons, seen = [], [], Counter(), set()
     for spec in spectra:
         if spec["scans"] in seen:
             reasons["duplicate cluster id"] += 1
@@ -90,6 +132,7 @@ def main():
             reasons[problem] += 1
         else:
             kept.append(cleaned)
+            in_domain.append(passes_dreams_check(spec))
     if not kept:
         raise SystemExit("No spectrum passed the quality rules. Check the input data.")
 
@@ -100,18 +143,14 @@ def main():
         "precursor_mz": [s["precursor_mz"] for s in kept],
         "charge_in_gnps": [s["charge"] for s in kept],
         "n_peaks": [len(s["mz"]) for s in kept],
+        "in_dreams_domain": in_domain,
     })
     meta = meta.merge(nodes, on="cluster_index", how="left")
     meta["gnps_family"] = meta["gnps_family"].fillna(-1).astype(int)
     meta = meta.merge(library, on="cluster_index", how="left")
 
-    # Family size counted among the kept spectra only. A GNPS family that keeps
-    # only one spectrum after cleaning behaves like a singleton in our analysis.
-    in_family = meta["gnps_family"] >= 0
-    sizes = meta.loc[in_family, "gnps_family"].map(meta.loc[in_family, "gnps_family"].value_counts())
-    meta["family_size"] = 1
-    meta.loc[in_family, "family_size"] = sizes.astype(int)
-    meta = meta.sort_values("row").reset_index(drop=True)
+    # Family size counted among the kept spectra only (see common.add_family_size).
+    meta = C.add_family_size(meta).sort_values("row").reset_index(drop=True)
 
     # 3. Keep only network edges between kept spectra.
     kept_ids = set(meta["cluster_index"])
@@ -144,7 +183,11 @@ def main():
         "min cosine for GNPS edges": params.get("PAIRS_MIN_COSINE", ""),
         "min matched peaks for GNPS edges": params.get("MIN_MATCHED_PEAKS", ""),
         "spectra read": len(spectra),
+        # Some GNPS jobs list every input scan, most of them without peaks.
+        # The spectra with peaks are the real input (the network nodes).
+        "spectra with peaks": len(spectra) - reasons["empty spectrum (no peaks at all)"],
         "spectra kept": len(meta),
+        "spectra kept that pass DreaMS's own check": int(meta["in_dreams_domain"].sum()),
         "spectra in a GNPS family (size >= 2)": int((meta["family_size"] >= 2).sum()),
         "GNPS families (size >= 2)": int(n_families),
         "GNPS edges between kept spectra": len(edges),
