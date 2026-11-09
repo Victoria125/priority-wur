@@ -33,10 +33,11 @@ from scipy.stats import spearmanr
 import common as C
 from exp_b_structures import molecule, top1_tanimoto
 
-# One lab per client. crusemann_salstrep is left out because it re-analyses
-# the Streptomyces data of crusemann_streptomyces (the runs are not independent).
+# One lab per client. The Crüsemann lab is crusemann_salstrep: it re-analyses
+# the Streptomyces data of crusemann_streptomyces too (so the two runs are not
+# independent), and no crusemann_streptomyces spectrum passes DreaMS's own check.
 DEFAULT_CLIENTS = [
-    "duncan_salinispora", "crusemann_streptomyces", "chevrette_insect",
+    "duncan_salinispora", "crusemann_salstrep", "chevrette_insect",
     "dorrestein_salbus", "tahlan_streptomyces",
 ]
 OUT_DIR = C.EXPERIMENT_DIR / "federated_prototype"
@@ -52,12 +53,10 @@ MIN_TEST_PER_LAB = 15    # per-lab numbers only for labs with enough test spectr
 GENERATOR = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=2048)
 
 
-def load_lab(run, in_domain_only=False):
+def load_lab(run, variant="protocol"):
     """Annotated spectra of one lab: embeddings, structure keys and fingerprints."""
-    p = C.run_paths(run, in_domain_only)
-    if not p.embeddings.exists():
-        return None
-    if in_domain_only and not C.read_json(p.run_info).get("spectra kept that pass DreaMS's own check"):
+    p = C.run_paths(run, variant)
+    if not (p.metadata.exists() and p.embeddings.exists()):
         return None
     meta, emb = C.load_metadata_and_embeddings(p)
     rows, keys, fps = [], [], []
@@ -132,6 +131,31 @@ def fedavg(sets, seed):
     return global_layer
 
 
+def split_sequential(sets, seed):
+    """Split learning in the style of SplitFedV2 (Thapa et al., AAAI 2022): the
+    frozen DreaMS model is the client part and the layer is the server part.
+    Every round the server trains on one lab after the other, so the last lab
+    of a round can make it forget the earlier ones: the intra-round forgetting
+    that Tirana et al. (AAAI 2026) describe for heterogeneous clients."""
+    layer = new_layer(seed)
+    opt = torch.optim.Adam(layer.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
+    for _ in range(ROUNDS):
+        for s in sets:
+            for _ in range(LOCAL_STEPS):
+                opt.zero_grad()
+                (s.w * (similarity(layer, s.x) - s.t) ** 2).sum().backward()
+                opt.step()
+    return layer
+
+
+def performance_gap(per_lab):
+    """Performance gap of Tirana et al. (AAAI 2026, my_utils.performance_gap),
+    over labs instead of labels: for every lab, how far it is behind the best
+    other lab; averaged over labs. 0 = all labs equally well served."""
+    v = np.asarray(per_lab, dtype=float)
+    return float(np.mean([np.max(np.maximum(0, v - x)) for x in v]))
+
+
 def apply(layer, emb):
     with torch.no_grad():
         return similarity(layer, torch.tensor(emb)).numpy()
@@ -160,15 +184,14 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--clients", nargs="*", default=DEFAULT_CLIENTS)
     parser.add_argument("--seeds", type=int, default=3)
-    parser.add_argument("--in-domain-only", action="store_true",
-                        help="only spectra that DreaMS's own format A check accepts")
+    parser.add_argument("--variant", default="protocol", choices=list(C.VARIANTS))
     args = parser.parse_args()
     torch.set_num_threads(2)
-    out_dir = OUT_DIR.with_name(OUT_DIR.name + "_in_domain") if args.in_domain_only else OUT_DIR
+    out_dir = OUT_DIR if args.variant == "protocol" else OUT_DIR.with_name(f"{OUT_DIR.name}_{args.variant}")
 
     labs = []
     for run in args.clients:
-        lab = load_lab(run, args.in_domain_only)
+        lab = load_lab(run, args.variant)
         if lab is None:
             print(f"{run}: no embeddings or no spectra in the DreaMS domain, skipped.")
         elif len(lab.keys) < 20:
@@ -225,14 +248,23 @@ def main():
         # Control: all spectra in one place, but only pairs from the same lab (what FedAvg can see).
         results += evaluate("centralised, pairs within one lab only", apply(train(new_layer(seed), train_sets, STEPS), test_emb), seed)
         results += evaluate("federated (FedAvg, spectra stay in the lab)", apply(fedavg(train_sets, seed), test_emb), seed)
+        results += evaluate("split learning, labs one after the other (SplitFedV2-like)",
+                            apply(split_sequential(train_sets, seed), test_emb), seed)
 
     df = pd.DataFrame(results)
+    # Performance gap between labs, from each lab's own test spectra.
+    per_lab = df[(df["test set"] != "all labs") & (df["metric"] == "Spearman, all test pairs")]
+    gaps = [{"method": m, "seed": s, "test set": "all labs", "metric": "performance gap between labs",
+             "value": performance_gap(g["value"])}
+            for (m, s), g in per_lab.groupby(["method", "seed"]) if len(g) >= 2]
+    df = pd.concat([df, pd.DataFrame(gaps)], ignore_index=True)
     out_dir.mkdir(exist_ok=True)
     df.to_parquet(out_dir / "exp_c_all_runs.parquet", index=False)
 
     order = ["pre-trained DreaMS (no training)", "local (mean over labs)", "local (own lab only)",
              "centralised (all spectra in one place)", "centralised, pairs within one lab only",
-             "federated (FedAvg, spectra stay in the lab)"]
+             "federated (FedAvg, spectra stay in the lab)",
+             "split learning, labs one after the other (SplitFedV2-like)"]
     agg = df.groupby(["test set", "metric", "method"])["value"].agg(["mean", "std"]).reset_index()
     agg["value"] = [f"{m:.3f}" if np.isnan(s) or s == 0 else f"{m:.3f} ± {s:.3f}" for m, s in zip(agg["mean"], agg["std"])]
 
@@ -245,8 +277,7 @@ def main():
     text = "\n".join([
         "# Experiment C (first prototype): a federated layer on top of frozen DreaMS",
         "",
-        "*Only spectra that pass DreaMS's own format A check.*" if args.in_domain_only
-        else "*All spectra kept by our cleaning.*",
+        f"*Variant: {args.variant}* (see `common.VARIANTS`).",
         "",
         f"Generated by `scripts/exp_c_federated_adapter.py`. {args.seeds} seeds (mean ± sd). "
         "Target: Tanimoto of Morgan fingerprints (radius 2, 2048 bits) of the library-annotated spectra. "
@@ -261,7 +292,13 @@ def main():
         "## Pooled test set (test spectra of all labs)",
         "",
         "*Pairs from two labs* uses only pairs of spectra measured in different labs. "
-        "*Analog search* takes the most similar spectrum of another molecule and reports the Tanimoto of the two molecules.",
+        "*Analog search* takes the most similar spectrum of another molecule and reports the Tanimoto of the two molecules. "
+        "*Performance gap between labs* is the metric of Tirana et al. (AAAI 2026) over labs instead of labels, "
+        f"from each lab's own test spectra (labs with at least {MIN_TEST_PER_LAB}); 0 = all labs equally well served.",
+        "",
+        "With DreaMS frozen on the client side, split learning in which the server may pair spectra from "
+        "different labs is the same as *centralised* training on the embeddings: the server sees every lab's "
+        "embeddings. *SplitFedV2-like* keeps the labs apart and trains on them one after the other.",
         "",
         markdown(main_table),
         "",
