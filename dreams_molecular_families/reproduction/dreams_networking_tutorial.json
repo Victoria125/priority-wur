@@ -1,0 +1,25 @@
+{
+  "expected (DreaMS tutorial)": {
+    "spectra": 3809,
+    "pair_similarity": 0.9109248,
+    "network_edges": 6858
+  },
+  "pair": [
+    1137,
+    1165
+  ],
+  "got (this machine)": {
+    "spectra": 3809,
+    "pair_similarity": 0.9109245,
+    "network_edges": 6858
+  },
+  "match": {
+    "spectra": true,
+    "pair_similarity": true,
+    "network_edges": true
+  },
+  "reproduced": true,
+  "seconds": 1896,
+  "dreams_commit": "dbec3a0b514a99e5056cfccde4559fda8cfe8129",
+  "computed_on": "2026-11-09T17:02:21"
+}
