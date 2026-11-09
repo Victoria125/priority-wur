@@ -1,0 +1,13 @@
+{
+  "clean_mgf_md5": "e5bc525ca18c8b0bf1cf5f581b79a2e5",
+  "shape": [
+    8903,
+    1024
+  ],
+  "model": "DreaMS_embedding (pre-trained, no fine-tuning)",
+  "dreams_commit": "dbec3a0b514a99e5056cfccde4559fda8cfe8129",
+  "device": "CPU",
+  "seconds": 4432,
+  "computed_on": "2026-11-09T15:00:33",
+  "machine": "Windows-10-10.0.26200-SP0"
+}

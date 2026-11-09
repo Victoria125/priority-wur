@@ -1,0 +1,22 @@
+{
+  "run": "dorrestein_salbus",
+  "dataset": "Streptomyces albus J1074, Dorrestein lab",
+  "MassIVE dataset (PoDP)": "MSV000079519",
+  "GNPS task": "7e463ca89a7c41958a0d0b993ee52131",
+  "GNPS workflow": "METABOLOMICS-SNETS-V2",
+  "description": "MSV000078604 - GNPS-Streptomyces albus J1074",
+  "MassIVE datasets in the GNPS job": "MSV000079519",
+  "fragment tolerance used by GNPS (Da)": "0.01",
+  "min cosine for GNPS edges": "0.6",
+  "min matched peaks for GNPS edges": "6",
+  "spectra read": 4707,
+  "spectra with peaks": 4707,
+  "spectra kept": 2053,
+  "spectra kept that pass DreaMS's own check": 2033,
+  "spectra in a GNPS family (size >= 2)": 1398,
+  "GNPS families (size >= 2)": 193,
+  "GNPS edges between kept spectra": 2670,
+  "spectra with a GNPS library hit": 132,
+  "library hits with a structure (SMILES)": 54,
+  "clean MGF md5": "f2b6fb3b4b37d7d948170be0a0b8a9c5"
+}

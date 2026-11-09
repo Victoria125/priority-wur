@@ -1,0 +1,22 @@
+{
+  "run": "tahlan_streptomyces",
+  "dataset": "Clavulanic acid producing Streptomyces, Tahlan lab",
+  "MassIVE dataset (PoDP)": "MSV000083835",
+  "GNPS task": "b5eb34985777438aaf0f87e31889384c",
+  "GNPS workflow": "METABOLOMICS-SNETS-V2",
+  "description": "MSV000083835 Clavulanic Acid Producing Streptomyces Species - Positive MCS 2",
+  "MassIVE datasets in the GNPS job": "MSV000083835",
+  "fragment tolerance used by GNPS (Da)": "0.02",
+  "min cosine for GNPS edges": "0.7",
+  "min matched peaks for GNPS edges": "4",
+  "spectra read": 26065,
+  "spectra with peaks": 12719,
+  "spectra kept": 8903,
+  "spectra kept that pass DreaMS's own check": 8894,
+  "spectra in a GNPS family (size >= 2)": 5319,
+  "GNPS families (size >= 2)": 1029,
+  "GNPS edges between kept spectra": 8067,
+  "spectra with a GNPS library hit": 634,
+  "library hits with a structure (SMILES)": 442,
+  "clean MGF md5": "e5bc525ca18c8b0bf1cf5f581b79a2e5"
+}

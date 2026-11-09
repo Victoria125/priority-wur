@@ -1,0 +1,22 @@
+{
+  "run": "chevrette_insect",
+  "dataset": "Insect-associated actinobacteria, Chevrette et al. 2019",
+  "MassIVE dataset (PoDP)": "MSV000084723",
+  "GNPS task": "927974dc1fe640d081b1467464815efa",
+  "GNPS workflow": "METABOLOMICS-SNETS-V2",
+  "description": "Mol Netw Insect-associated Streptomyces strains Chevrette 2019",
+  "MassIVE datasets in the GNPS job": "MSV000084723",
+  "fragment tolerance used by GNPS (Da)": "0.02",
+  "min cosine for GNPS edges": "0.6",
+  "min matched peaks for GNPS edges": "6",
+  "spectra read": 3117,
+  "spectra with peaks": 1214,
+  "spectra kept": 825,
+  "spectra kept that pass DreaMS's own check": 761,
+  "spectra in a GNPS family (size >= 2)": 600,
+  "GNPS families (size >= 2)": 100,
+  "GNPS edges between kept spectra": 1075,
+  "spectra with a GNPS library hit": 56,
+  "library hits with a structure (SMILES)": 41,
+  "clean MGF md5": "b27ca25c4df7addd81679f5e41a940b2"
+}
