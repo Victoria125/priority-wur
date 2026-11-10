@@ -6,6 +6,8 @@ First experiment after the meeting with Joana Tirana and Daniel Probst on 19 Oct
 
 DreaMS is used as it is (commit `dbec3a0`), on CPU. Only the small layer of Experiment C is trained.
 
+> **10 Nov 2026 quality-control update:** Chemical annotation selection, m/z sorting, provenance, embedding cache identity and sequential-client training have been corrected in [the QA branch](https://github.com/Victoria125/priority-wur/pull/1). The existing [results tables](RESULTS.md) are **historical pre-fix snapshots**, not re-run post-fix evidence. See [the handoff for Joana and Daniel](HANDOFF_FOR_JOANA_2026-11-10.md).
+
 ## Data
 
 Six GNPS molecular networking jobs on actinobacteria that the Paired Omics Data Platform links to genomes. `../scripts/download_data.py gnps` keeps them in `../data/raw/gnps/`.
@@ -26,14 +28,16 @@ Six GNPS molecular networking jobs on actinobacteria that the Paired Omics Data 
 | `protocol` (main) | Only spectra that pass DreaMS's own format A check (`DataFormatA().val_spec`), given to every method exactly as GNPS gives them | `runs/<run>/results/`, `federated_prototype/` |
 | `all_kept` (sensitivity) | Our cleaning: peaks above the precursor are removed first, then the format A rules. This also keeps spectra that DreaMS's own check rejects: old ion trap data in the Duncan job, and noise above m/z 1000 in every spectrum of the Crüsemann *Streptomyces* job (which has no `protocol` spectra) | `runs/<run>/results_all_kept/`, `federated_prototype_all_kept/` |
 
+**Important:** `all_kept` is *not necessarily a superset* of `protocol`. They are two separately filtered populations: for example, Dorrestein has 2,392 protocol spectra but 2,053 all_kept spectra in the historical snapshot. Compare their intersection and composition before attributing differences to model robustness.
+
 Every script takes `--variant protocol` (default) or `--variant all_kept`. Files about the run itself (`run_info.json`, `input_report.parquet`, `provenance.json`) are in `runs/<run>/`, outside both results folders.
 
 ## Checks built into the pipeline
 
 - **Provenance.** `check_provenance.py` reads the input files of each GNPS job (`upload_file_mapping` in params.xml), groups the spectra files by source and checks them against the documented MassIVE datasets (`RUNS[run]["sources"]`), including that the file names exist in those datasets.
 - **Charge.** The charge GNPS gives is kept in the MGF files (no `CHARGE` line when it is unknown) and counted in `run_info.json`. Embeddings are matched to their spectra by a fingerprint of cluster ids, precursors and peaks (`common.spectra_fingerprint`), which the charge line does not change.
-- **Annotations.** `annotations.py`: valid SMILES (largest fragment, neutralised), exact-mass hits only (no analog-search hits), MQScore >= 0.7 and >= 6 shared peaks, InChI consistent with SMILES, [M+H]+ mass consistent with the structure, one spectrum per molecule. Experiments B, C and D and the model comparison use only these compounds.
-- **Equivalent inputs.** All methods get the same 100 most intense peaks that DreaMS's embedding model keeps (`common.top_peaks`).
+- **Annotations.** `annotations.py`: GNPS library candidates are chemically screened **before** the best valid match is chosen per spectrum (so a higher-scoring analog cannot hide a valid exact match). Valid SMILES, exact mass, MQScore >= 0.7 and >= 6 shared peaks, InChI agreement, and [M+H]+ mass consistency are required. No quality field defaults to a passing value. Experiments B/C/D then deduplicate by compound; MGF/embedding metadata remain one row per spectrum.
+- **Equivalent inputs.** All methods get the same 100 most intense peaks that DreaMS's embedding model keeps (`common.top_peaks`), sorted by ascending m/z for spectral similarity code. Cached embeddings are additionally checked against the recorded model/revision/peak settings when applicable.
 - **Automatic checks.** `check_pipeline.py` fails when required data or results are missing; the only allowed absence is a variant that `run_info.json` declares empty.
 
 ## Steps
@@ -47,13 +51,24 @@ Every script takes `--variant protocol` (default) or `--variant all_kept`. Files
 | `scripts/embed_ms2deepscore.py` | The same with pre-trained MS2DeepScore (run with `.ms2ds_env`) | `data/ms2deepscore_embeddings*.npy` |
 | `scripts/exp_a_families.py` | **Experiment A**: neighbours and a DreaMS network vs the GNPS molecular families, against MS2DeepScore, binned cosine, precursor m/z and random; differences with 95% bootstrap intervals (resampling GNPS families) | `results*/exp_a_*` |
 | `scripts/exp_b_structures.py` | **Experiment B**: spectral similarities vs structural similarity (Morgan Tanimoto and MHFP) of validated, independent compounds; differences with 95% intervals (resampling molecules); counts for conclusions only with at least 100 compounds | `results*/exp_b_*` |
-| `scripts/exp_c_federated_adapter.py` | **Experiment C**: a linear layer on frozen DreaMS embeddings; 5 molecule splits; lab, IID and Dirichlet client partitions; pre-trained, local, centralised, FedAvg, FedProx and SplitFedV2-like, with validation-based selection and paired 95% intervals | `federated_prototype*/` |
+| `scripts/exp_c_federated_adapter.py` | **Experiment C**: a linear layer on frozen DreaMS embeddings; 5 molecule splits; lab, IID and Dirichlet client partitions; pre-trained, local, centralised, FedAvg, FedProx and a **sequential-client baseline (not SplitFed)**, with validation-based selection and paired 95% intervals; methods are not fully compute-matched | `federated_prototype*/` |
 | `scripts/exp_d_lab_shift.py` | **Experiment D**: can a classifier tell two labs apart from the embeddings, on all spectra and on molecules both labs measured | `lab_shift/` |
 | `scripts/linking_feasibility.py` | Which public PoDP datasets could test DreaMS for genome-metabolome linking (genomes, known links, share of spectra DreaMS accepts) | `linking_feasibility/` |
 | `scripts/report.py` | All runs side by side | `RESULTS.md` |
 | `scripts/check_pipeline.py` | Automatic checks: unit checks, file consistency, and a regression check against `tests/reference/` | exit code |
 
-`dreams_molecular_families.ipynb` runs everything and has the explanations, limitations and open questions. **Results:** [`RESULTS.md`](RESULTS.md).
+`dreams_molecular_families.ipynb` runs everything and has the explanations, limitations and open questions. **Historical (pre-fix) results:** [`RESULTS.md`](RESULTS.md).
+
+## Fast regression tests (no DreaMS weights required)
+
+From the repository root:
+
+```bash
+python -m pip install -r dreams_molecular_families/tests/requirements-ci.txt
+python -m unittest discover -s dreams_molecular_families/tests -v
+```
+
+These cover annotation quality, multiple hits, empty matches, spectrum-row alignment, peak sorting, provenance, and cache identity. GitHub Actions runs the tests on the QA branch and pull request. **They do not replace a clean end-to-end run.** To regenerate the scientific tables, re-run `prepare_data.py` for all relevant datasets followed by Experiments A/B/C/D, model comparisons, and `report.py` in the project's documented environments. The corrected source has not been used to regenerate the historical results automatically.
 
 ## Training a DreaMS model from scratch (GPU, Google Colab)
 
