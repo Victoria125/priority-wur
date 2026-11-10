@@ -384,8 +384,11 @@ def read_edges(path) -> pd.DataFrame:
 
 
 def read_library_hits(path) -> pd.DataFrame:
-    """Best GNPS library hit per spectrum, with what annotations.py needs to check it
-    (adduct, mass difference between query and library precursor, library precursor m/z)."""
+    """All GNPS candidate library hits, including multiple matches per spectrum.
+
+    Chemical validation and best-hit selection happen later in annotations.py,
+    before a single library annotation is merged into the spectral metadata.
+    """
     columns = ["cluster_index", "compound_name", "smiles", "inchi", "library_score", "shared_peaks",
                "adduct", "mass_diff", "library_mz", "query_mz"]
     if path is None or not Path(path).exists():
@@ -396,7 +399,6 @@ def read_library_hits(path) -> pd.DataFrame:
         "INCHI": "inchi", "MQScore": "library_score", "SharedPeaks": "shared_peaks",
         "Adduct": "adduct", "MassDiff": "mass_diff", "LibMZ": "library_mz", "SpecMZ": "query_mz",
     })
-    lib = lib.sort_values("library_score", ascending=False).drop_duplicates("cluster_index")
     return lib[[c for c in columns if c in lib.columns]]
 
 
@@ -462,11 +464,19 @@ def top_peaks(spec, k=None):
     """The k most intense peaks of a spectrum, in m/z order. DreaMS's embedding
     model keeps the 100 most intense peaks (PreTrainedModel, n_highest_peaks=100),
     so every other method gets exactly the same peaks."""
-    k = k or INPUT_PEAKS
-    if len(spec["mz"]) <= k:
-        return spec
-    keep = np.sort(np.argsort(spec["intensity"], kind="stable")[-k:])
-    return dict(spec, mz=spec["mz"][keep], intensity=spec["intensity"][keep])
+    k = INPUT_PEAKS if k is None else k
+    if k <= 0:
+        raise ValueError("k must be positive")
+    mz = np.asarray(spec["mz"])
+    intensity = np.asarray(spec["intensity"])
+    if len(mz) != len(intensity):
+        raise ValueError("m/z and intensity arrays have different lengths")
+    if len(mz) <= k:
+        keep = np.arange(len(mz))
+    else:
+        keep = np.argsort(intensity, kind="stable")[-k:]
+    keep = keep[np.argsort(mz[keep], kind="stable")]
+    return dict(spec, mz=mz[keep], intensity=intensity[keep])
 
 
 def bootstrap_mean_ci(values, groups=None, n_boot=2000, seed=0):
