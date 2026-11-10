@@ -30,7 +30,7 @@ import numpy as np
 import pandas as pd
 
 import common as C
-from annotations import normalise_adduct, validated_annotations
+from annotations import ANNOTATION_QC_VERSION, normalise_adduct, validated_annotations
 from prepare_data import check_gnps_job, passes_dreams_check
 
 REFERENCE_DIR = C.EXPERIMENT_DIR / "tests" / "reference"
@@ -125,6 +125,8 @@ def file_checks():
         if not check(p.run_info.exists(), f"{run}: run_info.json exists"):
             continue
         info = C.read_json(p.run_info)
+        check(info.get("annotation_qc_version") == ANNOTATION_QC_VERSION,
+              f"{run}: run_info matches the current chemical annotation QC version")
         check(p.input_report.exists(), f"{run}: input_report.parquet exists")
         if check(p.provenance.exists(), f"{run}: provenance.json exists"):
             check(C.read_json(p.provenance).get("ok") is True, f"{run}: provenance check passed")
@@ -144,17 +146,27 @@ def file_checks():
             meta = pd.read_parquet(pv.metadata)
             spectra = C.read_mgf(pv.clean_mgf)
             check(len(meta) == len(spectra) == n, f"{label}: metadata, MGF and run_info agree ({n} spectra)")
+            check(meta["row"].tolist() == list(range(n)), f"{label}: row indices match the spectral file")
+            check(meta["cluster_index"].is_unique, f"{label}: spectrum identifiers are unique")
             for name, emb_path, info_path in [("DreaMS", pv.embeddings, pv.embeddings_info),
                                               ("MS2DeepScore", pv.ms2ds_embeddings, pv.ms2ds_info)]:
                 if not check(emb_path.exists() and info_path.exists(), f"{label}: {name} embeddings exist"):
                     continue
                 check(np.load(emb_path, mmap_mode="r").shape[0] == n, f"{label}: one {name} embedding per spectrum")
-                check(C.embeddings_up_to_date(info_path, pv.clean_mgf), f"{label}: {name} embeddings are up to date")
+                expected = ({"model": "DreaMS_embedding (pre-trained, no fine-tuning)",
+                             "dreams_commit": C.DREAMS_COMMIT} if name == "DreaMS"
+                            else {"model": "MS2DeepScore pre-trained (Zenodo 17826815)",
+                                  "input_peaks": C.INPUT_PEAKS})
+                check(C.embeddings_up_to_date(info_path, pv.clean_mgf, expected=expected),
+                      f"{label}: {name} embeddings match spectra and model identity")
             if pv.ms2ds_info.exists():
                 check(C.read_json(pv.ms2ds_info).get("input_peaks") == C.INPUT_PEAKS,
                       f"{label}: MS2DeepScore got the same {C.INPUT_PEAKS} peaks as DreaMS")
             for summary in SUMMARIES:
-                check((pv.results / summary).exists(), f"{label}: {summary} exists")
+                summary_path = pv.results / summary
+                if check(summary_path.exists(), f"{label}: {summary} exists"):
+                    check(summary_path.stat().st_mtime >= pv.metadata.stat().st_mtime,
+                          f"{label}: {summary} was regenerated after metadata")
             if variant == "protocol":
                 check(all(passes_dreams_check(s) for s in spectra),
                       f"{label}: every spectrum passes DreaMS's own check")
