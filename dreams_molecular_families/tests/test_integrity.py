@@ -128,6 +128,27 @@ class TestSpectralIntegrity(unittest.TestCase):
         np.testing.assert_array_equal(out["mz"], [20., 30.])
         np.testing.assert_array_equal(out["intensity"], [10., 9.])
 
+    def test_embedding_cache_checks_model_revision_and_peak_config(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            mgf = root / "spectra.mgf"
+            info = root / "embedding_info.json"
+            mgf.write_text("test fixture", encoding="utf-8")
+            C.write_json({"spectra_fingerprint": "fixture-fp", "model": "model-A",
+                          "dreams_commit": "commit-A", "input_peaks": 100}, info)
+            with mock.patch.object(C, "spectra_fingerprint", return_value="fixture-fp"):
+                self.assertTrue(C.embeddings_up_to_date(
+                    info, mgf, expected={"model": "model-A", "dreams_commit": "commit-A"}))
+                self.assertFalse(C.embeddings_up_to_date(
+                    info, mgf, expected={"model": "model-B"}))
+                self.assertFalse(C.embeddings_up_to_date(
+                    info, mgf, expected={"dreams_commit": "commit-B"}))
+                self.assertFalse(C.embeddings_up_to_date(
+                    info, mgf, expected={"input_peaks": 60}))
+            with mock.patch.object(C, "spectra_fingerprint", return_value="different-fp"):
+                self.assertFalse(C.embeddings_up_to_date(
+                    info, mgf, expected={"model": "model-A"}))
+
     def test_top_peaks_rejects_bad_k_and_mismatched_lengths(self):
         spec = {"mz": np.array([2., 1.]), "intensity": np.array([2., 3.])}
         with self.assertRaises(ValueError):
