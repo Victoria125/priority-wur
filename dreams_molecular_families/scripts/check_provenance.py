@@ -21,7 +21,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 from collections import Counter
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 import pandas as pd
 
@@ -57,7 +57,14 @@ def massive_file_names(accession):
 
 def job_input_files(run):
     """Input files of the GNPS job, from upload_file_mapping in params.xml."""
-    with zipfile.ZipFile(C.local_archive(run)) as z:
+    archive = C.local_archive(run)
+    if archive is None:
+        # prepare_data.py can download a fallback archive even without a local
+        # PoDP GNPS cache; provenance must check that exact job as well.
+        archive = C.run_paths(run).data / "gnps_job.zip"
+    if not Path(archive).is_file():
+        raise FileNotFoundError(f"No GNPS archive for {run}: {archive}")
+    with zipfile.ZipFile(archive) as z:
         params = z.read(next(n for n in z.namelist() if n.endswith("params.xml"))).decode("utf-8", "ignore")
     return [e.split("|", 1)[1] for e in re.findall(r'<parameter name="upload_file_mapping">([^<]*)<', params) if "|" in e]
 
@@ -75,9 +82,13 @@ def check_run(run):
     spectra = [f for f in files if f.lower().endswith(SPECTRA_EXT) and not f.startswith(LIBRARY_PREFIXES)]
     libraries = [f for f in files if f.startswith(LIBRARY_PREFIXES)]
     by_source = Counter(source_of(f) for f in spectra)
-    known = {acc: massive_file_names(acc) for acc in documented}
+    known = {acc: massive_file_names(acc) for acc in documented} if spectra else {}
 
     sources, problems = [], []
+    if not spectra:
+        problems.append("GNPS job has no identifiable spectral input files in params.xml")
+    if not documented:
+        problems.append("No documented MassIVE sources for this GNPS job")
     for source, n in by_source.most_common():
         stems = {PurePosixPath(f).stem.lower() for f in spectra if source_of(f) == source}
         found = {acc: len(stems & names) for acc, names in known.items()}
@@ -106,6 +117,10 @@ def main():
         print(f"{'ok  ' if r['ok'] else 'FAIL'} {run}: " + "; ".join(
             f"{s['source']} ({s['spectra files']} files, {s['share found']:.0%} found in {s['names found in']})"
             for s in r["sources"]) + (f" | problems: {r['problems']}" if r["problems"] else ""))
+        if not r["sources"]:
+            rows.append({"run": run, "PoDP dataset": r["PoDP dataset"],
+                         "source": "(none)", "spectra files": 0, "names found in": "",
+                         "share found": 0, "names in PoDP dataset": 0, "check": "FAIL"})
         for s in r["sources"]:
             rows.append({"run": run, "PoDP dataset": r["PoDP dataset"], **s, "check": "ok" if r["ok"] else "FAIL"})
     df = pd.DataFrame(rows)
