@@ -15,6 +15,7 @@ import pandas as pd
 from dreams.utils.dformats import DataFormatA
 
 import common as C
+from annotations import best_library_hits
 
 DREAMS_FORMAT_A = DataFormatA()
 
@@ -140,7 +141,8 @@ def main():
     if not kept and not protocol:
         raise SystemExit("No spectrum passed the quality rules. Check the input data.")
 
-    # 2. One metadata table per version, in the same order as its MGF file.
+    # 2. One metadata row per spectrum, in exactly the MGF/embedding order.
+    #    Validate candidate library hits BEFORE selecting the best one.
     #    All network edges are saved; the experiments keep the ones they need.
     edges.to_parquet(p.edges, index=False)
     info_variants = {}
@@ -164,7 +166,7 @@ def main():
             "spectra in a GNPS family (size >= 2)": int((meta["family_size"] >= 2).sum()),
             "GNPS families (size >= 2)": int(meta.loc[meta["family_size"] >= 2, "gnps_family"].nunique()),
             "GNPS edges between these spectra": int((edges["id1"].isin(ids) & edges["id2"].isin(ids)).sum()),
-            "library hits with a structure (SMILES)": int(meta["smiles"].notna().sum()),
+            "spectra with a validated library structure": int(meta["smiles"].notna().sum()),
             "MGF md5": C.md5sum(pv.clean_mgf),
         }
 
@@ -194,6 +196,8 @@ def main():
         # The spectra with peaks are the real input (the network nodes).
         "spectra with peaks": n_nodes,
         "GNPS network edges": len(edges),
+        "GNPS library hit candidates (before chemical QC)": len(library),
+        "GNPS spectra with library candidates": int(library["cluster_index"].nunique()),
     }
     for variant, values in info_variants.items():
         for key, value in values.items():
@@ -207,7 +211,7 @@ def main():
 
 
 def spectra_table(spectra, nodes, library) -> pd.DataFrame:
-    """One row per spectrum, in MGF order, with its GNPS family and library hit."""
+    """One row per spectrum, in MGF order, with the best *validated* library hit."""
     meta = pd.DataFrame({
         "row": range(len(spectra)),
         "cluster_index": [s["scans"] for s in spectra],
@@ -215,9 +219,12 @@ def spectra_table(spectra, nodes, library) -> pd.DataFrame:
         "charge_in_gnps": [s["charge"] for s in spectra],
         "n_peaks": [len(s["mz"]) for s in spectra],
     })
-    meta = meta.merge(nodes, on="cluster_index", how="left")
+    meta = meta.merge(nodes, on="cluster_index", how="left", validate="one_to_one")
     meta["gnps_family"] = meta["gnps_family"].fillna(-1).astype(int)
-    meta = meta.merge(library, on="cluster_index", how="left")
+    valid_library = best_library_hits(meta, library)
+    meta = meta.merge(valid_library, on="cluster_index", how="left", validate="one_to_one")
+    if len(meta) != len(spectra):
+        raise RuntimeError("Library matching changed the number of spectral metadata rows")
     # Family size counted among these spectra only (see common.add_family_size).
     return C.add_family_size(meta).sort_values("row").reset_index(drop=True)
 
