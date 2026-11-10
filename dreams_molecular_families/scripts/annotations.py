@@ -34,6 +34,7 @@ MIN_LIBRARY_SCORE = 0.7
 MIN_SHARED_PEAKS = 6
 MAX_MH_ERROR = 0.05       # Da, [M+H]+ library precursor vs structure
 PROTON = 1.007276
+ANNOTATION_QC_VERSION = "2026-11-10-candidate-selection-v2"
 
 
 def molecule(smiles):
