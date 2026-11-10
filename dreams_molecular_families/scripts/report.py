@@ -54,7 +54,8 @@ DATASET_ROWS = [
     "spectra (protocol)", "share (protocol)", "spectra (all_kept)", "share (all_kept)",
     "GNPS families (size >= 2) (protocol)", "GNPS edges between these spectra (protocol)",
     "spectra with unknown charge in GNPS (protocol)",
-    "library hits with a structure (SMILES) (protocol)",
+    "GNPS library hit candidates (before chemical QC)",
+    "spectra with a validated library structure (protocol)",
 ]
 
 

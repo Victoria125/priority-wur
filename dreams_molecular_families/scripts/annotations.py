@@ -34,7 +34,7 @@ MIN_LIBRARY_SCORE = 0.7
 MIN_SHARED_PEAKS = 6
 MAX_MH_ERROR = 0.05       # Da, [M+H]+ library precursor vs structure
 PROTON = 1.007276
-ANNOTATION_QC_VERSION = "2026-11-10-candidate-selection-v2"
+ANNOTATION_QC_VERSION = "2026-11-10-candidate-selection-v3-gnps-inchi"
 
 
 def molecule(smiles):
@@ -65,10 +65,20 @@ def structure_key(mol) -> str:
 
 
 def inchi_key(inchi) -> str:
-    if not isinstance(inchi, str) or not inchi.strip().startswith("InChI="):
+    """Structure key of an InChI; "" if it cannot be read.
+
+    GNPS library entries often give the InChI without its "InChI=" prefix
+    ("1S/C9H11NO3/..."); 54 of the library hits in our six jobs do. Those are
+    read too, so their agreement with the SMILES is really checked."""
+    if not isinstance(inchi, str):
+        return ""
+    inchi = inchi.strip()
+    if inchi.startswith(("1S/", "1/")):
+        inchi = "InChI=" + inchi
+    if not inchi.startswith("InChI="):
         return ""
     try:
-        mol = Chem.MolFromInchi(inchi.strip())
+        mol = Chem.MolFromInchi(inchi)
     except Exception:
         return ""
     return structure_key(mol) if mol is not None else ""

@@ -82,6 +82,15 @@ class TestLibraryAnnotations(unittest.TestCase):
         lib["inchi"] = "InChI=1S/H2O/h1H2"
         self.assertTrue(A.best_library_hits(self.meta, lib).empty)
 
+    def test_gnps_inchi_without_prefix_is_checked(self):
+        # GNPS often stores the InChI without "InChI=": it must be read and
+        # compared, not rejected as invalid (or skipped as absent).
+        lib = self.lib.iloc[[1]].copy()
+        lib["inchi"] = "1S/C2H6O/c1-2-3/h3H,2H2,1H3"
+        self.assertEqual(len(A.best_library_hits(self.meta, lib)), 1)
+        lib["inchi"] = "1S/H2O/h1H2"
+        self.assertTrue(A.best_library_hits(self.meta, lib).empty)
+
     def test_empty_validation_keeps_expected_columns(self):
         invalid = self.lib.iloc[[0]].copy().merge(
             self.meta, on="cluster_index", how="left")
