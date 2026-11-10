@@ -399,7 +399,11 @@ def read_library_hits(path) -> pd.DataFrame:
         "INCHI": "inchi", "MQScore": "library_score", "SharedPeaks": "shared_peaks",
         "Adduct": "adduct", "MassDiff": "mass_diff", "LibMZ": "library_mz", "SpecMZ": "query_mz",
     })
-    return lib[[c for c in columns if c in lib.columns]]
+    if "cluster_index" not in lib:
+        raise ValueError(f"GNPS library file {path} is missing the spectrum identifier")
+    # A stable schema lets downstream QC reject missing fields rather than
+    # accidentally accepting them or raising KeyError during the metadata merge.
+    return lib.reindex(columns=columns)
 
 
 # ---------------------------------------------------------------------------
