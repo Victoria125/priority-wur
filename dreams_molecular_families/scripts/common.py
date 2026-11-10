@@ -438,7 +438,9 @@ def load_ms2deepscore(p: SimpleNamespace):
     missing or were computed for another version of the MGF file."""
     if not p.ms2ds_embeddings.exists():
         return None
-    if not embeddings_up_to_date(p.ms2ds_info, p.clean_mgf):
+    if not embeddings_up_to_date(p.ms2ds_info, p.clean_mgf, expected={
+        "input_peaks": INPUT_PEAKS, "model": "MS2DeepScore pre-trained (Zenodo 17826815)",
+    }):
         print(f"MS2DeepScore embeddings of {p.name} are out of date; skipped.")
         return None
     emb = np.load(p.ms2ds_embeddings).astype(np.float32)
@@ -457,11 +459,18 @@ def spectra_fingerprint(path) -> str:
     return h.hexdigest()
 
 
-def embeddings_up_to_date(info_path, mgf_path) -> bool:
-    """True if the embeddings described by info_path were computed from these spectra."""
+def embeddings_up_to_date(info_path, mgf_path, expected=None) -> bool:
+    """Check spectra *and* declared model/preprocessing identity.
+
+    Pass expected={"key": value} to reject cache entries from another model,
+    model revision or peak preprocessing configuration.
+    """
     if not (Path(info_path).exists() and Path(mgf_path).exists()):
         return False
-    return read_json(info_path).get("spectra_fingerprint") == spectra_fingerprint(mgf_path)
+    info = read_json(info_path)
+    if info.get("spectra_fingerprint") != spectra_fingerprint(mgf_path):
+        return False
+    return all(info.get(k) == value for k, value in (expected or {}).items())
 
 
 def top_peaks(spec, k=None):
