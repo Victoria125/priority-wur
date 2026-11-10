@@ -15,7 +15,7 @@ import pandas as pd
 from dreams.utils.dformats import DataFormatA
 
 import common as C
-from annotations import best_library_hits
+from annotations import ANNOTATION_QC_VERSION, best_library_hits
 
 DREAMS_FORMAT_A = DataFormatA()
 
@@ -196,6 +196,7 @@ def main():
         # The spectra with peaks are the real input (the network nodes).
         "spectra with peaks": n_nodes,
         "GNPS network edges": len(edges),
+        "annotation_qc_version": ANNOTATION_QC_VERSION,
         "GNPS library hit candidates (before chemical QC)": len(library),
         "GNPS spectra with library candidates": int(library["cluster_index"].nunique()),
     }
