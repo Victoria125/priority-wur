@@ -28,22 +28,22 @@ Clients per partition (compounds per client shown for split 0):
 |---|---|---|---|---|
 | dirichlet | FedAvg | +0.285 [+0.204, +0.366] | +0.031 [-0.009, +0.071] | -0.031 [-0.103, +0.042] |
 | dirichlet | FedProx (mu=0.01) | +0.267 [+0.194, +0.340] | +0.013 [-0.010, +0.036] | -0.049 [-0.145, +0.047] |
-| dirichlet | SplitFedV2-like (clients one after the other) | +0.253 [+0.164, +0.342] | -0.001 [-0.046, +0.044] | -0.063 [-0.177, +0.051] |
 | dirichlet | centralised (all compounds in one place) | +0.316 [+0.239, +0.393] | +0.062 [-0.031, +0.155] |  |
 | dirichlet | local (mean over clients) | +0.235 [+0.178, +0.293] | -0.019 [-0.035, -0.002] | -0.080 [-0.161, -0.000] |
 | dirichlet | pre-trained DreaMS (no training) | +0.254 [+0.188, +0.320] |  |  |
+| dirichlet | sequential clients (300 total steps; not SplitFed) | +0.287 [+0.218, +0.355] | +0.033 [+0.005, +0.060] | -0.029 [-0.110, +0.051] |
 | iid | FedAvg | +0.299 [+0.225, +0.372] | +0.045 [-0.029, +0.118] | -0.015 [-0.043, +0.014] |
 | iid | FedProx (mu=0.01) | +0.291 [+0.217, +0.365] | +0.037 [-0.043, +0.117] | -0.023 [-0.053, +0.007] |
-| iid | SplitFedV2-like (clients one after the other) | +0.286 [+0.202, +0.370] | +0.032 [-0.045, +0.109] | -0.027 [-0.096, +0.041] |
 | iid | centralised (all compounds in one place) | +0.313 [+0.239, +0.388] | +0.059 [-0.035, +0.154] |  |
 | iid | local (mean over clients) | +0.237 [+0.189, +0.285] | -0.017 [-0.069, +0.034] | -0.077 [-0.143, -0.010] |
 | iid | pre-trained DreaMS (no training) | +0.254 [+0.188, +0.320] |  |  |
+| iid | sequential clients (300 total steps; not SplitFed) | +0.279 [+0.204, +0.353] | +0.025 [-0.056, +0.106] | -0.035 [-0.053, -0.016] |
 | labs | FedAvg | +0.315 [+0.246, +0.383] | +0.061 [-0.016, +0.137] | -0.021 [-0.063, +0.022] |
 | labs | FedProx (mu=0.01) | +0.335 [+0.263, +0.407] | +0.081 [-0.007, +0.169] | +0.000 [-0.043, +0.043] |
-| labs | SplitFedV2-like (clients one after the other) | +0.297 [+0.225, +0.369] | +0.043 [-0.016, +0.102] | -0.038 [-0.101, +0.024] |
 | labs | centralised (all compounds in one place) | +0.335 [+0.271, +0.400] | +0.081 [-0.006, +0.169] |  |
 | labs | local (mean over clients) | +0.263 [+0.215, +0.312] | +0.009 [-0.044, +0.063] | -0.072 [-0.110, -0.033] |
 | labs | pre-trained DreaMS (no training) | +0.254 [+0.188, +0.320] |  |  |
+| labs | sequential clients (300 total steps; not SplitFed) | +0.314 [+0.243, +0.385] | +0.060 [-0.010, +0.130] | -0.021 [-0.076, +0.034] |
 
 ## analog search top-1 Tanimoto
 
@@ -51,26 +51,28 @@ Clients per partition (compounds per client shown for split 0):
 |---|---|---|---|---|
 | dirichlet | FedAvg | +0.367 [+0.340, +0.393] | +0.005 [-0.006, +0.017] | -0.011 [-0.048, +0.026] |
 | dirichlet | FedProx (mu=0.01) | +0.358 [+0.313, +0.403] | -0.003 [-0.025, +0.018] | -0.019 [-0.045, +0.006] |
-| dirichlet | SplitFedV2-like (clients one after the other) | +0.349 [+0.310, +0.389] | -0.012 [-0.024, +0.001] | -0.028 [-0.052, -0.005] |
 | dirichlet | centralised (all compounds in one place) | +0.378 [+0.317, +0.438] | +0.016 [-0.011, +0.044] |  |
 | dirichlet | local (mean over clients) | +0.336 [+0.308, +0.364] | -0.025 [-0.034, -0.016] | -0.041 [-0.076, -0.007] |
 | dirichlet | pre-trained DreaMS (no training) | +0.361 [+0.328, +0.395] |  |  |
+| dirichlet | sequential clients (300 total steps; not SplitFed) | +0.356 [+0.312, +0.401] | -0.005 [-0.025, +0.015] | -0.021 [-0.043, +0.000] |
 | iid | FedAvg | +0.376 [+0.332, +0.419] | +0.014 [-0.004, +0.033] | +0.000 [-0.028, +0.028] |
 | iid | FedProx (mu=0.01) | +0.372 [+0.323, +0.420] | +0.010 [-0.021, +0.041] | -0.004 [-0.043, +0.036] |
-| iid | SplitFedV2-like (clients one after the other) | +0.363 [+0.317, +0.409] | +0.002 [-0.023, +0.027] | -0.012 [-0.039, +0.015] |
 | iid | centralised (all compounds in one place) | +0.375 [+0.319, +0.431] | +0.014 [-0.010, +0.038] |  |
 | iid | local (mean over clients) | +0.344 [+0.308, +0.379] | -0.018 [-0.036, +0.001] | -0.032 [-0.064, +0.001] |
 | iid | pre-trained DreaMS (no training) | +0.361 [+0.328, +0.395] |  |  |
+| iid | sequential clients (300 total steps; not SplitFed) | +0.366 [+0.333, +0.400] | +0.005 [-0.002, +0.012] | -0.009 [-0.032, +0.015] |
 | labs | FedAvg | +0.374 [+0.316, +0.432] | +0.013 [-0.014, +0.039] | +0.000 [-0.013, +0.013] |
 | labs | FedProx (mu=0.01) | +0.367 [+0.326, +0.408] | +0.006 [-0.007, +0.019] | -0.007 [-0.028, +0.014] |
-| labs | SplitFedV2-like (clients one after the other) | +0.354 [+0.307, +0.401] | -0.007 [-0.033, +0.019] | -0.020 [-0.048, +0.009] |
 | labs | centralised (all compounds in one place) | +0.374 [+0.316, +0.432] | +0.013 [-0.012, +0.038] |  |
 | labs | local (mean over clients) | +0.339 [+0.292, +0.385] | -0.023 [-0.049, +0.004] | -0.035 [-0.062, -0.008] |
 | labs | pre-trained DreaMS (no training) | +0.361 [+0.328, +0.395] |  |  |
+| labs | sequential clients (300 total steps; not SplitFed) | +0.355 [+0.311, +0.398] | -0.007 [-0.020, +0.007] | -0.019 [-0.035, -0.003] |
 
 ## Limitations
 
 - Few compounds: most come from one lab (Tahlan), so the natural partition has few, very unequal clients.
 - Library annotations are putative even after the checks; the target is noisy.
 - The DreaMS embedding model was fine-tuned on public library spectra; some test molecules may be among them, which favours the pre-trained model.
+- Centralised, sequential and federated methods are NOT compute-matched: FedAvg/FedProx perform local steps on every client. Differences must not be attributed to federation alone.
+- Sequential-client baseline is NOT SplitFed or split learning: no model split or activation transfer.
 - Simulated on one machine, without communication costs or privacy measures.

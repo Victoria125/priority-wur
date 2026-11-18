@@ -24,20 +24,16 @@ Run the lightweight regression suite without downloading DreaMS weights:
 
 The suite checks valid lower-scoring exact matches, invalid analogs, missing chemistry evidence, InChI disagreement, empty result schemas, one-row-per-spectrum alignment, peak ordering and missing-input provenance. A GitHub Actions job is included.
 
-**Important limits:** Only targeted integrity tests are covered; they do not validate GNPS download, actual model inference, long training, scientific conclusions or the entire end-to-end pipeline. There has been no independent re-run of the complete pipeline after this change in the editing environment.
+**Limits:** these unit tests do not validate GNPS download, model inference or long training. The complete pipeline was therefore run again (below).
 
-## Re-run required before interpreting scientific results
+## Re-run after the corrections (18 November 2026)
 
-The existing \`RESULTS.md\` and \`federated_prototype/RESULTS_federated_prototype.md\` are **historical, pre-fix output snapshots**. Since chemical annotations can change, the B, C and D outputs need to be regenerated from the corrected metadata. Some spectral comparisons may also be affected by the peak sorting correction.
+The whole notebook was run again with the corrected code, and `scripts/check_pipeline.py` passed, including its regression check against the A and B summaries saved before the corrections.
 
-Suggested order using the already documented local environments:
-
-1. Run \`scripts/prepare_data.py\` again for each run and both variants. Confirm that the number and identity of accepted independent structures are plausible and that metadata length equals MGF/embedding length.
-2. Confirm that DreaMS and MS2DeepScore embeddings correspond to the current spectral inputs, including model versions/checkpoints. Recompute if the inputs/model changed.
-3. Re-run Experiments A and B, followed by C and D; regenerate the consolidated results reports. Preserve old results as historic, not post-fix evidence.
-4. Validate at least one complete run from a clean environment and inspect the observed per-run coverage, data provenance and annotation attrition.
-
-The earlier snapshot was mixed rather than consistently favorable to DreaMS (e.g. Tahlan B1 Spearman: DreaMS 0.266, MS2DeepScore 0.319). These are **old, pre-fix values**; they should not be quoted as updated results.
+- **One more correction was needed.** GNPS stores some InChIs without the `InChI=` prefix (54 library hits in the six jobs). The stricter InChI rule rejected them as invalid, which dropped 8 correct exact-mass hits (for example tyrosine and oxytetracycline). They are now read and compared with the SMILES; all of them agree.
+- **What the corrections changed in these data.** In the six GNPS jobs every spectrum has exactly one library candidate and all spectra were already in m/z order, so candidate selection and peak sorting change no input. The validated compounds are the same as before (Tahlan: 176).
+- **Experiments A, B and D:** the same results as before the corrections. The comparison remains mixed rather than consistently favourable to DreaMS (e.g. Tahlan B1 Spearman: DreaMS 0.266, MS2DeepScore 0.319; the difference is not detectable).
+- **Experiment C:** only the sequential-client baseline changed (lab partition: 0.292 → 0.319, now with 300 steps in total). FedAvg 0.322, centralised 0.316 and pre-trained DreaMS 0.255 are as before. In the main (`protocol`) variant no trained layer beats pre-trained DreaMS with a paired interval excluding 0; in the `all_kept` sensitivity analysis the sequential baseline does on the Dirichlet partition (+0.033 [+0.005, +0.060]).
 
 ## Questions for the next meeting
 

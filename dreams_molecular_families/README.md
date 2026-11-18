@@ -6,7 +6,7 @@ First experiment after the meeting with Joana Tirana and Daniel Probst on 19 Oct
 
 DreaMS is used as it is (commit `dbec3a0`), on CPU. Only the small layer of Experiment C is trained.
 
-> **10 Nov 2026 quality-control update:** Chemical annotation selection, m/z sorting, provenance, embedding cache identity and sequential-client training have been corrected in [the QA branch](https://github.com/Victoria125/priority-wur/pull/1). The existing [results tables](RESULTS.md) are **historical pre-fix snapshots**, not re-run post-fix evidence. See [the handoff for Joana and Daniel](HANDOFF_FOR_JOANA_2026-11-10.md).
+> **Quality-control update (10–18 Nov 2026):** Chemical annotation selection, m/z sorting, provenance, embedding cache identity and the sequential-client baseline were corrected in [pull request #1](https://github.com/Victoria125/priority-wur/pull/1), and GNPS InChIs without the `InChI=` prefix are now read. The whole notebook was then run again on 18 Nov 2026 and `check_pipeline.py` passed. Experiments A, B and D gave exactly the same results as before the corrections (the regression check compares the A and B summaries), because in these six GNPS jobs every spectrum has one library candidate and all spectra were already in m/z order. In Experiment C only the sequential-client baseline changed. See [the handoff for Joana and Daniel](HANDOFF_FOR_JOANA_2026-11-10.md).
 
 ## Data
 
@@ -28,7 +28,7 @@ Six GNPS molecular networking jobs on actinobacteria that the Paired Omics Data 
 | `protocol` (main) | Only spectra that pass DreaMS's own format A check (`DataFormatA().val_spec`), given to every method exactly as GNPS gives them | `runs/<run>/results/`, `federated_prototype/` |
 | `all_kept` (sensitivity) | Our cleaning: peaks above the precursor are removed first, then the format A rules. This also keeps spectra that DreaMS's own check rejects: old ion trap data in the Duncan job, and noise above m/z 1000 in every spectrum of the Crüsemann *Streptomyces* job (which has no `protocol` spectra) | `runs/<run>/results_all_kept/`, `federated_prototype_all_kept/` |
 
-**Important:** `all_kept` is *not necessarily a superset* of `protocol`. They are two separately filtered populations: for example, Dorrestein has 2,392 protocol spectra but 2,053 all_kept spectra in the historical snapshot. Compare their intersection and composition before attributing differences to model robustness.
+**Important:** `all_kept` is *not necessarily a superset* of `protocol`. They are two separately filtered populations: for example, Dorrestein has 2,392 protocol spectra but 2,053 all_kept spectra. Compare their intersection and composition before attributing differences to model robustness.
 
 Every script takes `--variant protocol` (default) or `--variant all_kept`. Files about the run itself (`run_info.json`, `input_report.parquet`, `provenance.json`) are in `runs/<run>/`, outside both results folders.
 
@@ -57,7 +57,7 @@ Every script takes `--variant protocol` (default) or `--variant all_kept`. Files
 | `scripts/report.py` | All runs side by side | `RESULTS.md` |
 | `scripts/check_pipeline.py` | Automatic checks: unit checks, file consistency, and a regression check against `tests/reference/` | exit code |
 
-`dreams_molecular_families.ipynb` runs everything and has the explanations, limitations and open questions. **Historical (pre-fix) results:** [`RESULTS.md`](RESULTS.md).
+`dreams_molecular_families.ipynb` runs everything and has the explanations, limitations and open questions. **Results:** [`RESULTS.md`](RESULTS.md).
 
 ## Fast regression tests (no DreaMS weights required)
 
@@ -68,7 +68,7 @@ python -m pip install -r dreams_molecular_families/tests/requirements-ci.txt
 python -m unittest discover -s dreams_molecular_families/tests -v
 ```
 
-These cover annotation quality, multiple hits, empty matches, spectrum-row alignment, peak sorting, provenance, and cache identity. GitHub Actions runs the tests on the QA branch and pull request. **They do not replace a clean end-to-end run.** To regenerate the scientific tables, re-run `prepare_data.py` for all relevant datasets followed by Experiments A/B/C/D, model comparisons, and `report.py` in the project's documented environments. The corrected source has not been used to regenerate the historical results automatically.
+These cover annotation quality, multiple hits, empty matches, spectrum-row alignment, peak sorting, provenance, and cache identity. GitHub Actions runs the tests on the QA branch and pull request. **They do not replace an end-to-end run.** To regenerate the scientific tables, run the notebook (or `prepare_data.py` for each run followed by Experiments A/B/C/D and `report.py`) in the project's documented environments, then `check_pipeline.py`.
 
 ## Training a DreaMS model from scratch (GPU, Google Colab)
 
