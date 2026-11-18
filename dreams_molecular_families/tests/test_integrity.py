@@ -91,6 +91,17 @@ class TestLibraryAnnotations(unittest.TestCase):
         lib["inchi"] = "1S/H2O/h1H2"
         self.assertTrue(A.best_library_hits(self.meta, lib).empty)
 
+    def test_funnel_counts_all_candidates_not_prepared_metadata(self):
+        # Spectrum 2 has only an analog hit: prepare_data drops it from the
+        # metadata, but the funnel must still count it before the mass check.
+        lib = pd.concat([self.lib, pd.DataFrame([{
+            "cluster_index": 2, "compound_name": "analog", "smiles": "CCO", "inchi": "",
+            "library_score": 0.9, "shared_peaks": 10, "mass_diff": 9.0,
+            "library_mz": 74.0, "adduct": "[M+H]+"}])], ignore_index=True)
+        funnel = dict(A.candidate_funnel(self.meta, lib))
+        self.assertEqual(funnel["library hits with a SMILES"], 2)
+        self.assertEqual(funnel[f"exact-mass hits (|query - library precursor| <= {A.MAX_MASS_DIFF} Da)"], 1)
+
     def test_empty_validation_keeps_expected_columns(self):
         invalid = self.lib.iloc[[0]].copy().merge(
             self.meta, on="cluster_index", how="left")

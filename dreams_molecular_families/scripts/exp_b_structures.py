@@ -30,7 +30,7 @@ from rdkit.Chem import rdFingerprintGenerator
 from scipy.stats import spearmanr
 
 import common as C
-from annotations import molecule, validated_annotations  # noqa: F401 (molecule is used by other scripts)
+from annotations import candidate_funnel, molecule, validated_annotations  # noqa: F401 (molecule is used by other scripts)
 
 warnings.filterwarnings("ignore")
 
@@ -106,7 +106,10 @@ def main():
 
     selected, qc = validated_annotations(meta)
     idx = selected["row"].tolist()
-    rows = [(f"annotation check: {step}", n, "spectra left") for step, n in qc]
+    # The metadata holds only validated hits, so the checks are counted on all
+    # GNPS candidates of these spectra; the last step comes from the metadata.
+    funnel = candidate_funnel(meta, C.read_library_hits(p.gnps / "library.tsv")) + [qc[-1]]
+    rows = [(f"annotation check: {step}", n, "spectra left") for step, n in funnel]
     rows.append(("annotated spectra used", len(idx), "independent compounds that pass the checks"))
     if len(idx) < 20:
         C.save_summary(rows + [("note", "too few annotated spectra for this test", "")],

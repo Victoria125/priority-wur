@@ -90,17 +90,21 @@ def screen_library_hits(meta: pd.DataFrame):
     Selection MUST be done after these filters: a high-scoring analog or invalid
     structure must not hide a lower-scoring, chemically valid exact-mass hit.
     Missing quality/mass information never counts as evidence of a valid hit.
-    Returns (valid_candidates, counts).
+    Returns (valid_candidates, counts); counts are spectra (not candidate rows)
+    left after each check.
     """
+    def spectra(h):
+        return int(h["cluster_index"].nunique()) if "cluster_index" in h else len(h)
+
     hits = meta.loc[meta["smiles"].notna()].copy() if "smiles" in meta else meta.iloc[:0].copy()
-    counts = [("library hits with a SMILES", len(hits))]
+    counts = [("library hits with a SMILES", spectra(hits))]
 
     smiles = hits["smiles"] if "smiles" in hits else []
     hits["mol"] = pd.Series([molecule(s) for s in smiles], index=hits.index, dtype=object)
     hits = hits.loc[hits["mol"].notna()].copy()
     hits["key"] = [structure_key(m) for m in hits["mol"]]
     hits = hits.loc[hits["key"] != ""].copy()
-    counts.append(("SMILES read by RDKit", len(hits)))
+    counts.append(("SMILES read by RDKit", spectra(hits)))
 
     # Compare the actual precursors when both are present. GNPS MassDiff is
     # accepted as a fallback only when a library precursor is unavailable.
@@ -126,7 +130,7 @@ def screen_library_hits(meta: pd.DataFrame):
         & (reported.isna() | reported.le(MAX_MASS_DIFF))
     )
     hits = hits.loc[mass_ok].copy()
-    counts.append((f"exact-mass hits (|query - library precursor| <= {MAX_MASS_DIFF} Da)", len(hits)))
+    counts.append((f"exact-mass hits (|query - library precursor| <= {MAX_MASS_DIFF} Da)", spectra(hits)))
 
     score = pd.to_numeric(
         hits["library_score"] if "library_score" in hits else pd.Series(np.nan, index=hits.index),
@@ -137,7 +141,7 @@ def screen_library_hits(meta: pd.DataFrame):
         errors="coerce",
     )
     hits = hits.loc[(score >= MIN_LIBRARY_SCORE) & (peaks >= MIN_SHARED_PEAKS)].copy()
-    counts.append((f"MQScore >= {MIN_LIBRARY_SCORE} and >= {MIN_SHARED_PEAKS} shared peaks", len(hits)))
+    counts.append((f"MQScore >= {MIN_LIBRARY_SCORE} and >= {MIN_SHARED_PEAKS} shared peaks", spectra(hits)))
 
     inchis = hits["inchi"].fillna("") if "inchi" in hits else pd.Series("", index=hits.index)
     agree = [
@@ -145,7 +149,7 @@ def screen_library_hits(meta: pd.DataFrame):
         for i, key in zip(inchis, hits["key"])
     ]
     hits = hits.loc[pd.Series(agree, index=hits.index, dtype=bool)].copy()
-    counts.append(("InChI agrees with SMILES (when an InChI is given)", len(hits)))
+    counts.append(("InChI agrees with SMILES (when an InChI is given)", spectra(hits)))
 
     adducts = hits["adduct"] if "adduct" in hits else pd.Series("", index=hits.index)
     hits["adduct_norm"] = [normalise_adduct(a) for a in adducts]
@@ -161,7 +165,7 @@ def screen_library_hits(meta: pd.DataFrame):
     # Missing library_mz is NOT an automatic pass for [M+H]+.
     mass_ok = ~is_mh | (reference_mz - expected).abs().le(MAX_MH_ERROR)
     hits = hits.loc[mass_ok].copy()
-    counts.append((f"[M+H]+ hits: library precursor agrees with the structure (<= {MAX_MH_ERROR} Da)", len(hits)))
+    counts.append((f"[M+H]+ hits: library precursor agrees with the structure (<= {MAX_MH_ERROR} Da)", spectra(hits)))
 
     hits["is_mh"] = hits["adduct_norm"] == "M+H"
     hits["score_num"] = pd.to_numeric(hits["library_score"], errors="coerce")
@@ -186,6 +190,16 @@ def best_library_hits(spectra_meta: pd.DataFrame, library: pd.DataFrame) -> pd.D
         ["cluster_index", "score_num"], ascending=[True, False], kind="stable"
     ).drop_duplicates("cluster_index", keep="first"))
     return best[list(library.columns)].reset_index(drop=True)
+
+
+def candidate_funnel(spectra_meta: pd.DataFrame, library: pd.DataFrame):
+    """Spectra left after each chemical check, counted on ALL GNPS candidate hits.
+
+    prepare_data keeps only the best validated hit in the metadata, so counting
+    the checks on the metadata would start from hits that already passed them."""
+    candidates = spectra_meta[["cluster_index", "precursor_mz"]].merge(
+        library, on="cluster_index", how="inner", validate="one_to_many")
+    return screen_library_hits(candidates)[1]
 
 
 def validated_annotations(meta: pd.DataFrame):
