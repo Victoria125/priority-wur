@@ -30,7 +30,10 @@ def reusable_embeddings(run, variant, spectra):
     q = C.run_paths(run, variant)
     if not (q.embeddings.exists() and q.embeddings_info.exists() and q.clean_mgf.exists()):
         return {}
-    if not C.embeddings_up_to_date(q.embeddings_info, q.clean_mgf):
+    if not C.embeddings_up_to_date(q.embeddings_info, q.clean_mgf, expected={
+        "model": "DreaMS_embedding (pre-trained, no fine-tuning)",
+        "dreams_commit": C.DREAMS_COMMIT,
+    }):
         return {}
     row_of = {spectrum_key(s): j for j, s in enumerate(C.read_mgf(q.clean_mgf))}
     other = np.load(q.embeddings)
@@ -51,7 +54,12 @@ def main():
     if not p.clean_mgf.exists():
         raise SystemExit(f"{args.run} has no spectra for the '{args.variant}' variant. Nothing to embed.")
     fingerprint = C.spectra_fingerprint(p.clean_mgf)
-    if not args.force and p.embeddings.exists() and C.embeddings_up_to_date(p.embeddings_info, p.clean_mgf):
+    if not args.force and p.embeddings.exists() and C.embeddings_up_to_date(
+        p.embeddings_info, p.clean_mgf, expected={
+            "model": "DreaMS_embedding (pre-trained, no fine-tuning)",
+            "dreams_commit": C.DREAMS_COMMIT,
+        }
+    ):
         print(f"{p.embeddings.name} is up to date for {args.run}. Nothing to do.")
         return
 

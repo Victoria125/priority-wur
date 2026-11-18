@@ -384,8 +384,11 @@ def read_edges(path) -> pd.DataFrame:
 
 
 def read_library_hits(path) -> pd.DataFrame:
-    """Best GNPS library hit per spectrum, with what annotations.py needs to check it
-    (adduct, mass difference between query and library precursor, library precursor m/z)."""
+    """All GNPS candidate library hits, including multiple matches per spectrum.
+
+    Chemical validation and best-hit selection happen later in annotations.py,
+    before a single library annotation is merged into the spectral metadata.
+    """
     columns = ["cluster_index", "compound_name", "smiles", "inchi", "library_score", "shared_peaks",
                "adduct", "mass_diff", "library_mz", "query_mz"]
     if path is None or not Path(path).exists():
@@ -396,8 +399,11 @@ def read_library_hits(path) -> pd.DataFrame:
         "INCHI": "inchi", "MQScore": "library_score", "SharedPeaks": "shared_peaks",
         "Adduct": "adduct", "MassDiff": "mass_diff", "LibMZ": "library_mz", "SpecMZ": "query_mz",
     })
-    lib = lib.sort_values("library_score", ascending=False).drop_duplicates("cluster_index")
-    return lib[[c for c in columns if c in lib.columns]]
+    if "cluster_index" not in lib:
+        raise ValueError(f"GNPS library file {path} is missing the spectrum identifier")
+    # A stable schema lets downstream QC reject missing fields rather than
+    # accidentally accepting them or raising KeyError during the metadata merge.
+    return lib.reindex(columns=columns)
 
 
 # ---------------------------------------------------------------------------
@@ -432,7 +438,9 @@ def load_ms2deepscore(p: SimpleNamespace):
     missing or were computed for another version of the MGF file."""
     if not p.ms2ds_embeddings.exists():
         return None
-    if not embeddings_up_to_date(p.ms2ds_info, p.clean_mgf):
+    if not embeddings_up_to_date(p.ms2ds_info, p.clean_mgf, expected={
+        "input_peaks": INPUT_PEAKS, "model": "MS2DeepScore pre-trained (Zenodo 17826815)",
+    }):
         print(f"MS2DeepScore embeddings of {p.name} are out of date; skipped.")
         return None
     emb = np.load(p.ms2ds_embeddings).astype(np.float32)
@@ -451,22 +459,37 @@ def spectra_fingerprint(path) -> str:
     return h.hexdigest()
 
 
-def embeddings_up_to_date(info_path, mgf_path) -> bool:
-    """True if the embeddings described by info_path were computed from these spectra."""
+def embeddings_up_to_date(info_path, mgf_path, expected=None) -> bool:
+    """Check spectra *and* declared model/preprocessing identity.
+
+    Pass expected={"key": value} to reject cache entries from another model,
+    model revision or peak preprocessing configuration.
+    """
     if not (Path(info_path).exists() and Path(mgf_path).exists()):
         return False
-    return read_json(info_path).get("spectra_fingerprint") == spectra_fingerprint(mgf_path)
+    info = read_json(info_path)
+    if info.get("spectra_fingerprint") != spectra_fingerprint(mgf_path):
+        return False
+    return all(info.get(k) == value for k, value in (expected or {}).items())
 
 
 def top_peaks(spec, k=None):
     """The k most intense peaks of a spectrum, in m/z order. DreaMS's embedding
     model keeps the 100 most intense peaks (PreTrainedModel, n_highest_peaks=100),
     so every other method gets exactly the same peaks."""
-    k = k or INPUT_PEAKS
-    if len(spec["mz"]) <= k:
-        return spec
-    keep = np.sort(np.argsort(spec["intensity"], kind="stable")[-k:])
-    return dict(spec, mz=spec["mz"][keep], intensity=spec["intensity"][keep])
+    k = INPUT_PEAKS if k is None else k
+    if k <= 0:
+        raise ValueError("k must be positive")
+    mz = np.asarray(spec["mz"])
+    intensity = np.asarray(spec["intensity"])
+    if len(mz) != len(intensity):
+        raise ValueError("m/z and intensity arrays have different lengths")
+    if len(mz) <= k:
+        keep = np.arange(len(mz))
+    else:
+        keep = np.argsort(intensity, kind="stable")[-k:]
+    keep = keep[np.argsort(mz[keep], kind="stable")]
+    return dict(spec, mz=mz[keep], intensity=intensity[keep])
 
 
 def bootstrap_mean_ci(values, groups=None, n_boot=2000, seed=0):

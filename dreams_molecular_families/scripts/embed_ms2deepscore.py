@@ -58,9 +58,12 @@ def main():
     if not p.clean_mgf.exists():
         raise SystemExit(f"{args.run} has no spectra for the '{args.variant}' variant. Nothing to embed.")
     fingerprint = C.spectra_fingerprint(p.clean_mgf)
-    info = C.read_json(p.ms2ds_info) if p.ms2ds_info.exists() else {}
-    if (not args.force and p.ms2ds_embeddings.exists() and info.get("spectra_fingerprint") == fingerprint
-            and info.get("input_peaks") == C.INPUT_PEAKS):
+    if (not args.force and p.ms2ds_embeddings.exists()
+            and C.embeddings_up_to_date(p.ms2ds_info, p.clean_mgf, expected={
+                "model": "MS2DeepScore pre-trained (Zenodo 17826815)",
+                "input_peaks": C.INPUT_PEAKS,
+                "ms2deepscore_version": metadata.version("ms2deepscore"),
+            })):
         print(f"{p.ms2ds_embeddings.name} is up to date for {args.run}. Nothing to do.")
         return
 

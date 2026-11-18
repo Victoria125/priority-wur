@@ -15,13 +15,15 @@ Robust design (fixed before looking at test results):
       iid        the pooled compounds shuffled into 5 equal clients
       dirichlet  5 clients with Dirichlet(0.5) shares of 8 chemical classes
                  (k-means on the fingerprints): a label-skew partition
-  - Methods, all with the same model, learning rate and budget (300 steps, or
-    30 rounds x 10 local steps), and the step or round chosen on the
-    validation compounds (never on the test compounds):
+  - Methods use the same model and learning rate, but NOT the same total
+    compute: centralised runs 300 steps; federated methods run 30 rounds x 10
+    local steps per client (300 per client); the sequential baseline runs
+    300 total steps. The step or round is chosen on validation compounds,
+    never on test compounds.
       pre-trained DreaMS (no training), local (mean over clients),
       centralised (all compounds in one place), FedAvg, FedProx (mu = 0.01),
-      SplitFedV2-like split learning (the server trains on one client after
-      the other; Thapa et al. 2022, Tirana et al. 2026).
+      sequential-client baseline (one shared layer updated by one client at
+      a time; NOT SplitFed or split learning).
   - Test: Spearman between the new similarity and Tanimoto over all pairs of
     test compounds, and the analog-search top-1 Tanimoto.
   - Every split gives one value per method; we report the mean with a 95%
@@ -209,17 +211,23 @@ def train_federated(sets, val, seed, mu=0.0):
     return select.best_layer(seed)
 
 
-def train_split_sequential(sets, val, seed):
-    """SplitFedV2-like: the server part is trained on one client after the other."""
+def train_sequential_baseline(sets, val, seed):
+    """One model, cyclic clients, exactly STEPS updates in total.
+
+    This is a sequential multi-client baseline, not a SplitFed or split
+    learning implementation; it does not exchange split-layer activations.
+    """
+    if not sets:
+        raise ValueError("At least one client is required")
     layer, select = new_layer(seed), Selector(val)
     opt = torch.optim.Adam(layer.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
-    for _ in range(ROUNDS):
-        for s in sets:
-            for _ in range(LOCAL_STEPS):
-                opt.zero_grad()
-                loss_of(layer, s).backward()
-                opt.step()
-        select(layer)
+    for step in range(1, STEPS + 1):
+        s = sets[(step - 1) % len(sets)]
+        opt.zero_grad()
+        loss_of(layer, s).backward()
+        opt.step()
+        if step % EVAL_EVERY == 0:
+            select(layer)
     return select.best_layer(seed)
 
 
@@ -287,8 +295,8 @@ def main():
                 train_central([training_set(pd.concat(clients))], val, seed), test)
             methods["FedAvg"] = test_scores(train_federated(sets, val, seed), test)
             methods[f"FedProx (mu={FEDPROX_MU})"] = test_scores(train_federated(sets, val, seed, FEDPROX_MU), test)
-            methods["SplitFedV2-like (clients one after the other)"] = test_scores(
-                train_split_sequential(sets, val, seed), test)
+            methods["sequential clients (300 total steps; not SplitFed)"] = test_scores(
+                train_sequential_baseline(sets, val, seed), test)
             for method, scores in methods.items():
                 for metric, value in scores.items():
                     results.append({"split": split, "partition": partition, "method": method,
@@ -347,6 +355,9 @@ def main():
         "- Library annotations are putative even after the checks; the target is noisy.",
         "- The DreaMS embedding model was fine-tuned on public library spectra; some test molecules may be among "
         "them, which favours the pre-trained model.",
+        "- Centralised, sequential and federated methods are NOT compute-matched: FedAvg/FedProx "
+        "perform local steps on every client. Differences must not be attributed to federation alone.",
+        "- Sequential-client baseline is NOT SplitFed or split learning: no model split or activation transfer.",
         "- Simulated on one machine, without communication costs or privacy measures.",
     ])
     (out_dir / "RESULTS_federated_prototype.md").write_text(text + "\n", encoding="utf-8")
