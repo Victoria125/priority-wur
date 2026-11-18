@@ -31,6 +31,8 @@ def knn(score_block, n, k, chunk=2048):
 
     score_block(start, stop) must return a (stop - start, n) matrix where a
     higher value means 'more similar'. Working in blocks keeps memory low.
+    Raises ValueError on NaN or infinite scores: the diagonal is masked with
+    -inf, so such scores could make a spectrum its own neighbour.
     """
     k = min(k, n - 1)
     idx_out = np.empty((n, k), dtype=np.int64)
@@ -38,6 +40,12 @@ def knn(score_block, n, k, chunk=2048):
     for start in range(0, n, chunk):
         stop = min(start + chunk, n)
         scores = np.array(score_block(start, stop), dtype=np.float64)
+        if not np.isfinite(scores).all():
+            bad = start + np.flatnonzero(~np.isfinite(scores).all(axis=1))
+            raise ValueError(
+                f"knn: NaN or infinite similarity for spectra {bad[:10].tolist()} "
+                "(e.g. an empty spectrum or a zero-length embedding)."
+            )
         scores[np.arange(stop - start), np.arange(start, stop)] = -np.inf
         part = np.argpartition(-scores, kth=k - 1, axis=1)[:, :k]
         part_scores = np.take_along_axis(scores, part, axis=1)
