@@ -42,6 +42,12 @@ jobs:
         run: |
           python dreams_molecular_families/scripts/exp_f_external_validation.py --reference tahlan_streptomyces --external chevrette_insect --output /tmp/fusion_chevrette_external.json
           python -c "import json; r=json.load(open('/tmp/fusion_chevrette_external.json')); assert r['reference_massive'] != r['external_massive']; assert r['external_compounds_after_overlap_filter'] <= 21; assert r['external_compounds_after_overlap_filter'] + r['overlap_with_reference_count'] == r['external_compounds_before_overlap_filter']; assert r['fusion_weight'].startswith('pre-specified'); print('External check recorded overlap and fixed fusion: '+r['status'])"
+      - name: Independent cross-omics ranking must reject PoDP-only real data
+        run: |
+          status=0
+          python dreams_molecular_families/scripts/exp_g_bgc_feature_ranking.py --dataset MSV000078836 --output /tmp/independent_linking_gate.json || status=$?
+          test "$status" -eq 2
+          python -c "import json; x=json.load(open('/tmp/independent_linking_gate.json')); assert x['no_ranking_generated'] and 'BLOCKED' in x['status']; print('New BGC-feature baseline correctly refuses uncurated real inputs')"
       - name: Public PoDP inventory is not enough for verified linking
         run: |
           python dreams_molecular_families/scripts/linking_evidence.py --dataset MSV000078836 --output /tmp/linking_audit.json
@@ -54,6 +60,7 @@ jobs:
             /tmp/representation_triage.json
             /tmp/representation_triage.md
             /tmp/linking_audit.json
+            /tmp/independent_linking_gate.json
             /tmp/fusion_tahlan.json
             /tmp/fusion_chevrette_external.json
 
