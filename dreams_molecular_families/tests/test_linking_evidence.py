@@ -68,7 +68,7 @@ class EvidenceGateTests(unittest.TestCase):
         self.assertTrue(any("Fewer than two strains" in x for x in r["issues"]))
 
     def test_same_bgc_profiles_do_not_support_strain_variation(self):
-        same = BGCS + [dict(BGCS[0], strain_id="strain-B")]
+        same = [dict(BGCS[0]), dict(BGCS[0], strain_id="strain-B")]
         r = audit(PODP, "MSV1", SPECTRA, same, VERIFIED)
         self.assertFalse(r["ready_for_manual_benchmark_review"])
         self.assertTrue(any("No observable BGC-presence variation" in x for x in r["issues"]))
