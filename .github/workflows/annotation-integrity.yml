@@ -38,3 +38,17 @@ jobs:
         run: |
           python dreams_molecular_families/scripts/linking_evidence.py --dataset MSV000078836 --output /tmp/linking_audit.json
           python -c "import json; x=json.load(open('/tmp/linking_audit.json')); assert x['podp_reported_rows'] >= 1; assert x['ready_for_manual_benchmark_review'] is False; print('Evidence gate correctly rejects uncurated linking')"
+
+  lean4-evidence-invariants:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout formal statements
+        uses: actions/checkout@v4
+      - name: Install pinned Lean 4 compiler
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -o /tmp/elan-init.sh
+          sh /tmp/elan-init.sh -y --default-toolchain leanprover/lean4:v4.17.0
+          "$HOME/.elan/bin/lean" --version
+      - name: Check proof of evidence-gating invariants
+        run: "$HOME/.elan/bin/lean formal/LinkingEvidence.lean"
