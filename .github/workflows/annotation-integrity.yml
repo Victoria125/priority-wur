@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/annotation-integrity-2026-11-10
+      - research/joana-aligned-evidence-gates-2026-11-20
   pull_request:
     paths:
       - 'dreams_molecular_families/scripts/**'
