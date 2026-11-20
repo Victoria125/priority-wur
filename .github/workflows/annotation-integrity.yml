@@ -52,6 +52,10 @@ jobs:
         run: |
           python dreams_molecular_families/scripts/teaching_walkthrough.py --run tahlan_streptomyces --count 3 --output /tmp/teaching_examples.json
           python -c "import json; x=json.load(open('/tmp/teaching_examples.json')); assert len(x['examples']) == 3; assert x['n_independent_putative_structures_in_run'] == 176; assert all(len(z['five_strongest_real_spectral_peaks']) >= 1 for z in x['examples']); print('Real-source instructional examples generated and checked')"
+      - name: Show explicitly synthetic example of BGC-feature ranking
+        run: |
+          python dreams_molecular_families/scripts/teaching_bgc_ranking_demo.py > /tmp/teaching_bgc_synthetic.json
+          python -c "import json; x=json.load(open('/tmp/teaching_bgc_synthetic.json')); assert x['this_is_not_real_biology'] and x['no_real_links_tested']; assert next(r for r in x['all_pairs'] if r['bgc_id']=='FAKE_BGC_A' and r['feature_id']=='FAKE_SIGNAL_X')['rank_within_bgc']==1; print('Synthetic ranking demonstration verified, NOT a biological result')"
       - name: Public PoDP inventory is not enough for verified linking
         run: |
           python dreams_molecular_families/scripts/linking_evidence.py --dataset MSV000078836 --output /tmp/linking_audit.json
@@ -68,6 +72,7 @@ jobs:
             /tmp/fusion_tahlan.json
             /tmp/fusion_chevrette_external.json
             /tmp/teaching_examples.json
+            /tmp/teaching_bgc_synthetic.json
 
   lean4-evidence-invariants:
     runs-on: ubuntu-latest
