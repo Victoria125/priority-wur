@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from exp_e_fixed_fusion import cosine_matrix, fusion_scores, evaluate
+from exp_e_fixed_fusion import cosine_matrix, fusion_scores, evaluate, paired_jackknife_delta, paired_top1_bootstrap_delta
 
 
 class FixedFusionTests(unittest.TestCase):
@@ -64,6 +64,27 @@ class FixedFusionTests(unittest.TestCase):
         t[0, 1] = t[1, 0] = 0.2
         with self.assertRaisesRegex(ValueError, "not symmetric"):
             evaluate({"demo": mat}, t, [f"mol-{i}" for i in range(n)])
+
+
+    def test_jackknife_identical_methods_exact_zero(self):
+        n = 20
+        x = np.stack([np.linspace(1., 20., n), np.linspace(20., 1., n)], axis=1)
+        score = cosine_matrix(x)
+        t = (score + 1.0) / 2
+        out = paired_jackknife_delta({"a": score, "b": score}, t, "a", "b")
+        self.assertEqual(out["delta"], 0)
+        self.assertEqual(out["approx_95pct_interval"], [0., 0.])
+        self.assertTrue(out["interval_includes_zero"])
+
+    def test_top1_bootstrap_identical_methods_exact_zero(self):
+        n = 20
+        x = np.stack([np.linspace(1., 20., n), np.linspace(20., 1., n)], axis=1)
+        score = cosine_matrix(x)
+        t = (score + 1.0) / 2
+        out = paired_top1_bootstrap_delta({"a": score, "b": score}, t, "a", "b", rounds=60)
+        self.assertEqual(out["delta"], 0)
+        self.assertEqual(out["approx_95pct_interval"], [0., 0.])
+
 
 
 if __name__ == "__main__":
