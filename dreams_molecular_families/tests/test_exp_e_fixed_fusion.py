@@ -39,7 +39,8 @@ class FixedFusionTests(unittest.TestCase):
             fusion_scores(np.eye(3), np.eye(3), alpha=2)
 
     def test_evaluate_20_unique_compounds(self):
-        x = np.eye(20)
+        # Nontrivial embeddings: all off-diagonal similarities must not be equal.
+        x = np.stack([np.linspace(1., 20., 20), np.linspace(20., 1., 20)], axis=1)
         t = np.tile(np.linspace(0, 1, 20), (20, 1))
         t = (t + t.T) / 2
         np.fill_diagonal(t, 1.0)
