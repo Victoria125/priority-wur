@@ -34,10 +34,23 @@ jobs:
         run: |
           python dreams_molecular_families/scripts/representation_triage.py --json-out /tmp/representation_triage.json --markdown-out /tmp/representation_triage.md
           python -c "import json; x=json.load(open('/tmp/representation_triage.json')); assert x['primary_structural_benchmark_candidates']==['tahlan_streptomyces']; assert not x['ready_for_bgc_spectrum_linking']; assert len(x['runs'])==6; print('Evidence-aware triage: Tahlan is chemical-reference candidate; no verified linking benchmark')"
+      - name: Fixed no-training fusion on real Tahlan embeddings
+        run: |
+          python dreams_molecular_families/scripts/exp_e_fixed_fusion.py --run tahlan_streptomyces --output /tmp/fusion_tahlan.json
+          python -c "import json; r=json.load(open('/tmp/fusion_tahlan.json')); assert r['independent_compounds']==176; assert abs(r['scores']['DreaMS']['spearman_with_tanimoto']-0.266)<0.005; assert abs(r['scores']['MS2DeepScore']['spearman_with_tanimoto']-0.319)<0.005; print('Tahlan fusion experiment reproduced published project baselines')"
       - name: Public PoDP inventory is not enough for verified linking
         run: |
           python dreams_molecular_families/scripts/linking_evidence.py --dataset MSV000078836 --output /tmp/linking_audit.json
           python -c "import json; x=json.load(open('/tmp/linking_audit.json')); assert x['podp_reported_rows'] >= 1; assert x['ready_for_manual_benchmark_review'] is False; print('Evidence gate correctly rejects uncurated linking')"
+      - name: Upload evidence and embedding-fusion outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-review-results
+          path: |
+            /tmp/representation_triage.json
+            /tmp/representation_triage.md
+            /tmp/linking_audit.json
+            /tmp/fusion_tahlan.json
 
   lean4-evidence-invariants:
     runs-on: ubuntu-latest
