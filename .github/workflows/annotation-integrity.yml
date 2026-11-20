@@ -38,6 +38,10 @@ jobs:
         run: |
           python dreams_molecular_families/scripts/exp_e_fixed_fusion.py --run tahlan_streptomyces --output /tmp/fusion_tahlan.json
           python -c "import json; r=json.load(open('/tmp/fusion_tahlan.json')); assert r['independent_compounds']==176; assert abs(r['scores']['DreaMS']['spearman_with_tanimoto']-0.266)<0.005; assert abs(r['scores']['MS2DeepScore']['spearman_with_tanimoto']-0.319)<0.005; print('Tahlan fusion experiment reproduced published project baselines')"
+      - name: External pre-specified fusion on Chevrette with structural overlap excluded
+        run: |
+          python dreams_molecular_families/scripts/exp_f_external_validation.py --reference tahlan_streptomyces --external chevrette_insect --output /tmp/fusion_chevrette_external.json
+          python -c "import json; r=json.load(open('/tmp/fusion_chevrette_external.json')); assert r['reference_massive'] != r['external_massive']; assert r['external_compounds_after_overlap_filter'] <= 21; assert r['external_compounds_after_overlap_filter'] + r['overlap_with_reference_count'] == r['external_compounds_before_overlap_filter']; assert r['fusion_weight'].startswith('pre-specified'); print('External check recorded overlap and fixed fusion: '+r['status'])"
       - name: Public PoDP inventory is not enough for verified linking
         run: |
           python dreams_molecular_families/scripts/linking_evidence.py --dataset MSV000078836 --output /tmp/linking_audit.json
@@ -51,6 +55,7 @@ jobs:
             /tmp/representation_triage.md
             /tmp/linking_audit.json
             /tmp/fusion_tahlan.json
+            /tmp/fusion_chevrette_external.json
 
   lean4-evidence-invariants:
     runs-on: ubuntu-latest
