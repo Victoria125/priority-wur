@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/annotation-integrity-2026-11-10
+      - research/joana-aligned-evidence-gates-2026-11-20
   pull_request:
     paths:
       - 'dreams_molecular_families/scripts/**'
@@ -29,3 +30,60 @@ jobs:
         run: python -m compileall -q dreams_molecular_families/scripts
       - name: Unit regression tests
         run: python -m unittest discover -s dreams_molecular_families/tests -v
+      - name: Triage recorded model performance and datasets
+        run: |
+          python dreams_molecular_families/scripts/representation_triage.py --json-out /tmp/representation_triage.json --markdown-out /tmp/representation_triage.md
+          python -c "import json; x=json.load(open('/tmp/representation_triage.json')); assert x['primary_structural_benchmark_candidates']==['tahlan_streptomyces']; assert not x['ready_for_bgc_spectrum_linking']; assert len(x['runs'])==6; print('Evidence-aware triage: Tahlan is chemical-reference candidate; no verified linking benchmark')"
+      - name: Fixed no-training fusion on real Tahlan embeddings
+        run: |
+          python dreams_molecular_families/scripts/exp_e_fixed_fusion.py --run tahlan_streptomyces --output /tmp/fusion_tahlan.json
+          python -c "import json; r=json.load(open('/tmp/fusion_tahlan.json')); assert r['independent_compounds']==176; assert abs(r['scores']['DreaMS']['spearman_with_tanimoto']-0.266)<0.005; assert abs(r['scores']['MS2DeepScore']['spearman_with_tanimoto']-0.319)<0.005; print('Tahlan fusion experiment reproduced published project baselines')"
+      - name: External pre-specified fusion on Chevrette with structural overlap excluded
+        run: |
+          python dreams_molecular_families/scripts/exp_f_external_validation.py --reference tahlan_streptomyces --external chevrette_insect --output /tmp/fusion_chevrette_external.json
+          python -c "import json; r=json.load(open('/tmp/fusion_chevrette_external.json')); assert r['reference_massive'] != r['external_massive']; assert r['external_compounds_after_overlap_filter'] <= 21; assert r['external_compounds_after_overlap_filter'] + r['overlap_with_reference_count'] == r['external_compounds_before_overlap_filter']; assert r['fusion_weight'].startswith('pre-specified'); print('External check recorded overlap and fixed fusion: '+r['status'])"
+      - name: Independent cross-omics ranking must reject PoDP-only real data
+        run: |
+          status=0
+          python dreams_molecular_families/scripts/exp_g_bgc_feature_ranking.py --dataset MSV000078836 --output /tmp/independent_linking_gate.json || status=$?
+          test "$status" -eq 2
+          python -c "import json; x=json.load(open('/tmp/independent_linking_gate.json')); assert x['no_ranking_generated'] and 'BLOCKED' in x['status']; print('New BGC-feature baseline correctly refuses uncurated real inputs')"
+      - name: Show real Tahlan MS/MS peaks and nearest-neighbour chemical examples
+        run: |
+          python dreams_molecular_families/scripts/teaching_walkthrough.py --run tahlan_streptomyces --count 3 --output /tmp/teaching_examples.json
+          python -c "import json; x=json.load(open('/tmp/teaching_examples.json')); assert len(x['examples']) == 3; assert x['n_independent_putative_structures_in_run'] == 176; assert all(len(z['five_strongest_real_spectral_peaks']) >= 1 for z in x['examples']); print('Real-source instructional examples generated and checked')"
+      - name: Show explicitly synthetic example of BGC-feature ranking
+        run: |
+          python dreams_molecular_families/scripts/teaching_bgc_ranking_demo.py > /tmp/teaching_bgc_synthetic.json
+          python -c "import json; x=json.load(open('/tmp/teaching_bgc_synthetic.json')); assert x['this_is_not_real_biology'] and x['no_real_links_tested']; assert next(r for r in x['all_pairs'] if r['bgc_id']=='FAKE_BGC_A' and r['feature_id']=='FAKE_SIGNAL_X')['rank_within_bgc']==1; print('Synthetic ranking demonstration verified, NOT a biological result')"
+      - name: Public PoDP inventory is not enough for verified linking
+        run: |
+          python dreams_molecular_families/scripts/linking_evidence.py --dataset MSV000078836 --output /tmp/linking_audit.json
+          python -c "import json; x=json.load(open('/tmp/linking_audit.json')); assert x['podp_reported_rows'] >= 1; assert x['ready_for_manual_benchmark_review'] is False; print('Evidence gate correctly rejects uncurated linking')"
+      - name: Upload evidence and embedding-fusion outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-review-results
+          path: |
+            /tmp/representation_triage.json
+            /tmp/representation_triage.md
+            /tmp/linking_audit.json
+            /tmp/independent_linking_gate.json
+            /tmp/fusion_tahlan.json
+            /tmp/fusion_chevrette_external.json
+            /tmp/teaching_examples.json
+            /tmp/teaching_bgc_synthetic.json
+
+  lean4-evidence-invariants:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout formal statements
+        uses: actions/checkout@v4
+      - name: Install pinned Lean 4 compiler
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -o /tmp/elan-init.sh
+          sh /tmp/elan-init.sh -y --default-toolchain leanprover/lean4:v4.17.0
+          "$HOME/.elan/bin/lean" --version
+      - name: Check proof of evidence-gating invariants
+        run: "$HOME/.elan/bin/lean formal/LinkingEvidence.lean"

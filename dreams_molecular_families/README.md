@@ -1,5 +1,39 @@
 # DreaMS embeddings and molecular families
 
+> **Research priority (20 Nov 2026): dataset quality and MS/MS representations FIRST.**
+> BGC–spectrum linking requires independent spectrum→strain and strain→BGC mappings;
+> PoDP links alone do not make a benchmark. Run
+> `python scripts/linking_evidence.py --dataset MSV000078836` from this folder
+> to audit the missing evidence (it reports NOT ready by default). **Experiment C
+> (federated adapter) is exploratory and deferred**, not a main contribution or
+> a basis to claim federated-learning improvement. See
+> [research alignment](../docs/RESEARCH_ALIGNMENT_2026-11-20.md).
+>
+## Three research directions (20 November review branch)
+
+**1. External embedding validation:** `scripts/exp_f_external_validation.py`
+checks Chevrette against Tahlan, excluding five overlapping chemical
+connectivity keys. With only 16 non-overlapping putative compounds, the
+test correctly reports **INCONCLUSIVE**; it does not infer superiority.
+
+**2. Fixed 50/50 fusion:** `scripts/exp_e_fixed_fusion.py` combines
+DreaMS/MS2DeepScore similarity scores (no new network training). The
+Tahlan numerical gain over MS2DeepScore is small and its exploratory
+uncertainty interval includes zero.
+
+**3. Independent BGC–feature ranking:** `scripts/exp_g_bgc_feature_ranking.py`
+is a transparent co-occurrence hypothesis baseline. It requires complete
+source-backed strain×BGC and strain×feature matrices. With current PoDP
+inventory alone it **BLOCKS** real linking; synthetic regression examples
+are NOT evidence of biological prediction or NPLinker superiority.
+
+See [three-direction study](../docs/THREE_DIRECTIONS_RESULTS_2026-11-20.md),
+[NPLinker alternatives](../docs/NP_LINKER_ALTERNATIVES_2026-11-20.md),
+and [fusion results](../docs/FUSION_RESULTS_2026-11-20.md).
+Source compilation, unit tests, real-data guards and Lean 4 toy invariants
+are checked through GitHub Actions. No claim of formal verification of
+the neural networks or biological associations.
+
 First experiment after the meeting with Joana Tirana and Daniel Probst on 19 October 2026 (embeddings for metabolomics, molecular families, the DreaMS paper).
 
 **Question.** Do embeddings of MS/MS spectra from the pre-trained [DreaMS](https://dreams-docs.readthedocs.io/) model put metabolites of the same molecular family close together? Does DreaMS similarity follow chemical structure better than the modified cosine that GNPS uses, and better than MS2DeepScore? And, as a first look towards federated learning: how different are the labs, and does a small layer trained across labs help?
