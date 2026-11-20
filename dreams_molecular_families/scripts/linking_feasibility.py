@@ -96,8 +96,8 @@ def main():
         print(rows[-1])
 
     df = pd.DataFrame(rows)
-    df["usable for a linking test"] = [
-        "yes" if (r["genomes"] >= MIN_GENOMES and r["known BGC-MS2 links"] >= MIN_LINKS
+    df["candidate for manual linking curation"] = [
+        "yes - inventory only" if (r["genomes"] >= MIN_GENOMES and r["known BGC-MS2 links"] >= MIN_LINKS
                   and r["pass DreaMS's own check"] >= MIN_SHARE_IN_DOMAIN * r["spectra with peaks"]) else "no"
         for _, r in df.iterrows()
     ]
@@ -110,13 +110,16 @@ def main():
         "datasets on this laptop and `data/derived/podp_projects.csv`. *Usable* means at least "
         f"{MIN_GENOMES} genomes (strain variation for correlation-based linking), at least {MIN_LINKS} "
         f"known BGC-MS2 links and at least {MIN_SHARE_IN_DOMAIN:.0%} of the spectra accepted by DreaMS's "
-        "own format A check. These thresholds are our choice.",
+        "own format A check. These thresholds are our choice and identify ONLY a candidate for manual curation, "
+        "not a ready BGC-MS2 benchmark. PoDP rows, library annotations, and MassIVE IDs do not establish "
+        "a verified spectrum-to-strain-to-BGC mapping. See scripts/linking_evidence.py.",
         "",
-        markdown(df.sort_values(["usable for a linking test", "known BGC-MS2 links"], ascending=False)),
+        markdown(df.sort_values(["candidate for manual linking curation", "known BGC-MS2 links"], ascending=False)),
         "",
-        "## Known links of the usable dataset: can DreaMS see the molecules?",
+        "## Reported compounds of a candidate dataset: can DreaMS see their GNPS library matches?",
         "",
         "Library-annotated spectra of each linked molecule, and how many pass DreaMS's own check. "
+        "These are NAME-MATCHED library candidates, not independently verified BGC-spectrum pairs. "
         "Format A accepts only charge +1 and precursor m/z up to 1000, so large or doubly charged "
         "molecules are out of the DreaMS domain.",
         "",
