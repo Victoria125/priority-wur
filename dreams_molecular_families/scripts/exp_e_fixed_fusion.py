@@ -75,6 +75,69 @@ def evaluate(scores: dict[str, np.ndarray], tanimoto: np.ndarray, keys):
     return out
 
 
+
+def paired_jackknife_delta(scores: dict[str, np.ndarray],
+                           target: np.ndarray, first: str, other: str) -> dict:
+    """Approximate molecule-delete-one jackknife interval for delta Spearman.
+
+    This accounts for shared molecule membership of pairwise comparisons better
+    than bootstrapping the correlated spectrum pairs. It is not an independent
+    laboratory validation or a rigorous CI under molecular-family dependence.
+    """
+    a = np.asarray(scores[first], dtype=float)
+    b = np.asarray(scores[other], dtype=float)
+    t = np.asarray(target, dtype=float)
+    n = len(a)
+    if n < 20 or a.shape != (n, n) or b.shape != (n, n) or t.shape != (n, n):
+        raise ValueError("Jackknife requires >= 20 matched square matrices")
+    def difference(indices):
+        ii = np.ix_(indices, indices)
+        tri = np.triu_indices(len(indices), 1)
+        tar = t[ii][tri]
+        return float(spearmanr(a[ii][tri], tar).correlation -
+                     spearmanr(b[ii][tri], tar).correlation)
+    full = difference(np.arange(n))
+    deletion = np.array([
+        difference(np.r_[0:i, i+1:n])
+        for i in range(n)
+    ])
+    if not np.all(np.isfinite(deletion)):
+        raise ValueError("Undefined leave-one-molecule-out Spearman")
+    se = float(np.sqrt((n - 1) / n * np.square(deletion - deletion.mean()).sum()))
+    return {
+        "delta": full,
+        "approx_95pct_interval": [full - 1.96*se, full + 1.96*se],
+        "method": "delete-one-molecule jackknife; normal approximation; exploratory",
+        "interval_includes_zero": bool(full - 1.96*se <= 0 <= full + 1.96*se),
+    }
+
+
+def paired_top1_bootstrap_delta(scores: dict[str, np.ndarray],
+                                target: np.ndarray, first: str, other: str,
+                                seed: int = 3402, rounds: int = 2000) -> dict:
+    """Query-level bootstrap on fixed candidate pools, NOT external validation."""
+    n = len(target)
+    if n < 20 or rounds < 50:
+        raise ValueError("Need >=20 queries and >=50 bootstrap rounds")
+    def per_query(name):
+        sim = np.asarray(scores[name], dtype=float).copy()
+        np.fill_diagonal(sim, -np.inf)
+        return target[np.arange(n), sim.argmax(axis=1)]
+    differences = per_query(first) - per_query(other)
+    rng = np.random.default_rng(seed)
+    estimates = np.array([
+        differences[rng.integers(0, n, size=n)].mean()
+        for _ in range(rounds)
+    ])
+    low, high = np.quantile(estimates, [0.025, 0.975])
+    return {
+        "delta": float(differences.mean()),
+        "approx_95pct_interval": [float(low), float(high)],
+        "method": "query-molecule bootstrap; fixed candidate pool; exploratory",
+        "interval_includes_zero": bool(low <= 0 <= high),
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", default="tahlan_streptomyces")
@@ -107,6 +170,12 @@ def main() -> None:
     fps = [gen.GetFingerprint(mol) for mol in selected["mol"]]
     tanimoto = np.asarray([DataStructs.BulkTanimotoSimilarity(fp, fps) for fp in fps], dtype=float)
     measurements = evaluate(scores, tanimoto, selected["key"].tolist())
+    paired_comparisons = {}
+    for baseline in ("DreaMS", "MS2DeepScore"):
+        paired_comparisons[f"fusion_minus_{baseline}"] = {
+            "spearman": paired_jackknife_delta(scores, tanimoto, "fixed_50_50_fusion", baseline),
+            "top1": paired_top1_bootstrap_delta(scores, tanimoto, "fixed_50_50_fusion", baseline),
+        }
     result = {
         "dataset": args.run, "variant": args.variant,
         "independent_compounds": len(selected),
@@ -114,10 +183,12 @@ def main() -> None:
         "fusion_weight": {"DreaMS": 0.5, "MS2DeepScore": 0.5},
         "training": "none; fixed weights pre-specified",
         "scores": measurements,
+        "paired_exploratory_uncertainty": paired_comparisons,
         "warnings": [
             "Library annotations remain putative even after chemical QC.",
             "No external hold-out or independent lab validation in this experiment.",
-            "No claim of statistical superiority from point estimates alone.",
+            "Jackknife and query bootstrap intervals are exploratory under dependent chemical families.",
+            "No claim of independent-lab superiority from point estimates or exploratory intervals.",
             "Neither model directly predicts BGC–metabolite links.",
             "Test compounds may overlap pretrained public library datasets.",
         ],
