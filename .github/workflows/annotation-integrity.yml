@@ -30,6 +30,10 @@ jobs:
         run: python -m compileall -q dreams_molecular_families/scripts
       - name: Unit regression tests
         run: python -m unittest discover -s dreams_molecular_families/tests -v
+      - name: Triage recorded model performance and datasets
+        run: |
+          python dreams_molecular_families/scripts/representation_triage.py --json-out /tmp/representation_triage.json --markdown-out /tmp/representation_triage.md
+          python -c "import json; x=json.load(open('/tmp/representation_triage.json')); assert x['primary_structural_benchmark_candidates']==['tahlan_streptomyces']; assert not x['ready_for_bgc_spectrum_linking']; assert len(x['runs'])==6; print('Evidence-aware triage: Tahlan is chemical-reference candidate; no verified linking benchmark')"
       - name: Public PoDP inventory is not enough for verified linking
         run: |
           python dreams_molecular_families/scripts/linking_evidence.py --dataset MSV000078836 --output /tmp/linking_audit.json
