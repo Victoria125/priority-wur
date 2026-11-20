@@ -1,5 +1,14 @@
 # DreaMS embeddings and molecular families
 
+> **Research priority (20 Nov 2026): dataset quality and MS/MS representations FIRST.**
+> BGC–spectrum linking requires independent spectrum→strain and strain→BGC mappings;
+> PoDP links alone do not make a benchmark. Run
+> `python scripts/linking_evidence.py --dataset MSV000078836` from this folder
+> to audit the missing evidence (it reports NOT ready by default). **Experiment C
+> (federated adapter) is exploratory and deferred**, not a main contribution or
+> a basis to claim federated-learning improvement. See
+> [research alignment](../docs/RESEARCH_ALIGNMENT_2026-11-20.md).
+>
 First experiment after the meeting with Joana Tirana and Daniel Probst on 19 October 2026 (embeddings for metabolomics, molecular families, the DreaMS paper).
 
 **Question.** Do embeddings of MS/MS spectra from the pre-trained [DreaMS](https://dreams-docs.readthedocs.io/) model put metabolites of the same molecular family close together? Does DreaMS similarity follow chemical structure better than the modified cosine that GNPS uses, and better than MS2DeepScore? And, as a first look towards federated learning: how different are the labs, and does a small layer trained across labs help?
