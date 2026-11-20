@@ -44,3 +44,42 @@ theorem anyNumberOfPublishedLinksIsInsufficient (reportedLinks : Nat) :
       strainVariation := false
     } = false := by
   simp [readyForBenchmark]
+
+
+/-! Independent co-occurrence ranking also needs a *complete* measured
+     strain-by-BGC and strain-by-metabolite-feature matrix.
+
+     These propositional guards are NOT a formalization of Fisher's exact test,
+     the Python code, or chemical correctness. -/
+
+structure RankingPrerequisites where
+  genomicObservations : Bool
+  metabolomicObservations : Bool
+  sameStrains : Bool
+  completeMatrix : Bool
+  informativePresenceVariation : Bool
+deriving Repr
+
+def mayComputeRanking (r : RankingPrerequisites) : Bool :=
+  r.genomicObservations && r.metabolomicObservations &&
+  r.sameStrains && r.completeMatrix && r.informativePresenceVariation
+
+theorem incompleteMatrixCannotRank (r : RankingPrerequisites)
+    (h : r.completeMatrix = false) : mayComputeRanking r = false := by
+  simp [mayComputeRanking, h]
+
+theorem unmatchedStrainsCannotRank (r : RankingPrerequisites)
+    (h : r.sameStrains = false) : mayComputeRanking r = false := by
+  simp [mayComputeRanking, h]
+
+theorem missingMetabolomicsCannotRank (r : RankingPrerequisites)
+    (h : r.metabolomicObservations = false) : mayComputeRanking r = false := by
+  simp [mayComputeRanking, h]
+
+def mayEvaluateAgainstPositives (r : RankingPrerequisites)
+    (independentPositiveEvidence : Bool) : Bool :=
+  mayComputeRanking r && independentPositiveEvidence
+
+theorem positiveEvidenceNeededForEvaluation (r : RankingPrerequisites) :
+    mayEvaluateAgainstPositives r false = false := by
+  simp [mayEvaluateAgainstPositives]
